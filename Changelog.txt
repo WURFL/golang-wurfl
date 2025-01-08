@@ -1,5 +1,5 @@
 1.30 - Dec 17, 2024
-- prepare for public release, change folder structure
+- first public release, change folder structure
 
 1.29 - Dec 5, 2024
 - best practice is to have interface inside package file, not in a separate file

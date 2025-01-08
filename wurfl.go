@@ -216,9 +216,10 @@ type Updater interface {
 // 1.27: GetStaticCaps() and GetVirtualCaps() return map with caps/vcaps found and last error detected (if any)
 // 1.28: - double lru cache does not exist anymore, kept in constants only to not break existing code
 // 1.29: best practice is to have interface inside package file, not in a separate file
+// 1.30: first public release
 
 // Version is the current version of this package.
-var Version = "1.29"
+var Version = "1.30"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
