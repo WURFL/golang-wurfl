@@ -1,0 +1,126 @@
+1.30 - Dec 17, 2024
+- prepare for public release, change folder structure
+
+1.29 - Dec 5, 2024
+- best practice is to have interface inside package file, not in a separate file
+
+1.28 - Nov 19, 2024
+- double lru cache does not exist anymore, kept in constants only to not break existing code
+
+1.27 - Nov 6, 2024 - wurfl 1.13.2.2
+- GetStaticCaps() and GetVirtualCaps() always return a map (it could be empty) and last error found, if any
+
+1.26 - Oct 8, 2024 - wurfl 1.13.2.1
+- LookupWithImportantHeaderMap() method case insensitive on header names
+- Exposed module version
+- New GetLastUpdated() method
+
+1.25 - Oct 2, 2024 - wurfl 1.13.2.0
+- Added new method Download() to get a fresh copy of the WURFL data file
+- Deprecated GetCapability(), GetCapabilities(), GetVirtualCapability() and GetVirtualCapabilities() methods
+- New methods GetStaticCaps() and GetVirtualCaps()
+- Removed duplicated constants
+
+1.24 - May 27, 2024 - wurfl 1.13.1.0
+- typo fix in SetUpdaterUserAgent() 
+
+1.23 - Feb 21, 2024 - wurfl 1.13.0.0
+- Added SetUpdaterUserAgent() to indicate binding in updater useragent
+
+1.22 - Dec 6, 2023 - wurfl-unknown
+- fix leak on caps Cstring cache
+- added SetLogPath()
+- added cap/vcap methods that manage the error
+	GetVirtualCap(vcap string) (string, error)
+	GetStaticCap(cap string) (string, error)
+
+1.21 - June 8, 2023 
+- faster Get*Capability*() methods by using CString cache
+- benchmarks, new tests
+- new consts for WurflAttrCapabilityFallbackCache - Requires libwurfl 1.12.9.3
+
+1.20 - May 15, 2023
+- Added Wurfl fallback cache attribute (requires libwurfl 1.12.9.3)
+
+1.19 - Feb 22, 2023 
+- speed ups, benchmarks
+
+1.18 - Jan 6, 2023 - wurfl 1.12.8.1
+- new method GetParentID for *Device - Requires libwurfl 1.12.8.2 or later
+
+1.17 - Oct 5th, 2022 - wurfl 1.12.7.1
+- new methods GetCapabilityAsInt and GetVirtualCapabilityAsInt for *Device
+
+1.16 - Sep 21st, 2022 - wurfl 1.12.7.0
+- new methods SetUpdaterUserAgent and GetUpdaterUserAgent
+
+1.15 - Feb 09, 2022 - wurfl 1.12.5.0
+- new methods to handle UA Frozen
+- deprecate WurflCacheProviderDoubleLru Cache Provider
+
+1.14 - Oct 25, 2021 - wurfl 1.12.3.1, new method for getting engine attributes
+-for macos it needs libwurfl 1.12.3.2
+
+1.13 - May 13, 2021 - wurfl 1.12.1.0, new method for setting engine attributes
+- for macos it needs libwurfl 1.12.3.1
+
+1.12 - mar 30, 2020 - Adding new global method ApiVersion() that does not need Wurfl Engine initialized. Also adding directives for
+compiling on Windows.
+
+1.11 - sep 04, 2019 - wurfl 1.11.4.0, increased GetAllDeviceIds slice capacity to reduce memory usage per operation
+
+1.10 - Feb 6, 2019 - wurfl 1.11.1.0, package is now released as source code for easy integration. Optimized creation/destruction of important headers names C strings
+
+1.9 - Nov 19, 2018 - wurfl 1.11.0.0, avoid deprecated calls in module build
+
+1.8 - May 21, 2018 - wurfl 1.9.5.0, removed/deprecated wurfl_set_engine_target() and wurfl_set_useragent_priority() usages.
+
+1.7 - May 21, 2018 - wurfl 1.9.4.0, fixes to some method signatures and imports, 1.10.2 support
+
+1.7 - Dec 18, 2017 - wurfl 1.9.2.2
+- Added WurflCacheProviderDefault to use libwurfl internal default
+
+1.6 - October 25th, 2017 - wurfl 1.9.0.1
+- Added function GetAllDeviceIDs that returns complete set of wurfl_id present in wurfl.xml.
+
+1.5 - June 26th, 2017 - wurfl 1.9.0.0
+
+- Deprecated old engine target options. Not to be used anymore.
+- Breaking change : GetCapabilities() now returns a string/string map with all che caps requested and their values
+- Added GetVirtualCapabilities() to behave like GetCapabilities()
+- Added more unit tests
+
+1.4 - April 19, 2017 - wurfl 1.8.4.1
+
+- Added LookupWithImportantHeaderMap()
+- Added LookupDeviceIDWithImportantHeaderMap()
+- Both allow using important header map (IHMap) to provide headers to lookup process.
+
+1.3 - April 6, 2017 - wurfl-1.8.4.0
+
+- adding prototypes to fake wurfl.go source in binary distribution so that godoc wurfl works
+
+1.2 - March 15, 2017 - wurfl-1.8.3.0 First final release
+
+changing folder structure
+added binary distribution
+New updater methods
+
+1.1 - March 2, 2017
+
+Updater test with native modtime change
+Updater tests not working on macosx
+added wurfl udpater logger datafile
+access wurfl.zip on all platforms
+macosx has different wurfl.zip place
+linking for macosx
+
+1.0 - Feb 24, 2017
+
+added code for Updater inclusion
+
+0.8 - Jan 27, 2017
+
+New LookupRequest and get DeviceID with request working using the new infuze important headers option.
+new LookupRequest which uses important headers alternative to callback methods
+make minor methods available too, in progress

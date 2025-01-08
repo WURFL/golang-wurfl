@@ -1,5 +1,5 @@
 # Overview
-golang-wurfl is a Go language binding to the WURFL InFuze C API.
+golang-wurfl is a Go language binding to the WURFL InFuze C API. For this module to work you need to have the WURFL InFuze C API installed (https://www.scientiamobile.com/secondary-products/wurfl-infuze-for-c/)
 
 # Getting Started
 ```
