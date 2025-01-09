@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"os"
 
-	wurfl "github.com/scientiamobile/golang-wurfl"
+	wurfl "github.com/WURFL/golang-wurfl"
 )
 
 func main() {
