@@ -133,6 +133,7 @@ func TestWurfl_Lookup(t *testing.T) {
 	var deviceid2 string
 	var verbose bool = false
 
+	// Capability filtering is discouraged and will be deprecated. Here only for testing purposes
 	capfilter := []string{
 		"mobile_browser_version",
 		"pointing_method",
@@ -2167,6 +2168,8 @@ func TestDownloadJira1236(t *testing.T) {
 	}
 
 	// Set a filter containing capabilities not included in eval version
+	// Capability filtering is discouraged and will be deprecated. Here only for testing purposes
+
 	capfilter := []string{
 		"brand_name",
 		"model_name",
