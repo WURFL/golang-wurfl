@@ -452,7 +452,6 @@ func Test_LookupWithImportantHeaderMap(t *testing.T) {
 	wengine.Destroy()
 }
 
-
 func lookUpUserAgent(wengine *wurfl.Wurfl, ua string, capabilities []string) map[string]string {
 	device, _ := wengine.LookupUserAgent(ua)
 	defer device.Destroy()
@@ -1151,12 +1150,12 @@ func TestWurfl_GetHeaderQuality(t *testing.T) {
 	}
 }
 
-func Benchmark_GetCapability_FallbackCacheDefault_ModelName(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheDefault_ModelName(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	modelName := device.GetCapability("model_name")
+	modelName, _ := device.GetStaticCap("model_name")
 	if modelName == "" {
 		b.Error("capability model_name must have a value")
 	}
@@ -1185,18 +1184,18 @@ func Benchmark_GetCapability_FallbackCacheDefault_ModelName(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("model_name")
+		device.GetStaticCap("model_name")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheDefault_IsSmarttv(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheDefault_IsSmarttv(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	isSmarttv := device.GetCapability("is_smarttv")
+	isSmarttv, _ := device.GetStaticCap("is_smarttv")
 	if isSmarttv == "" {
 		b.Error("capability is_smarttv must have a value")
 	}
@@ -1225,18 +1224,18 @@ func Benchmark_GetCapability_FallbackCacheDefault_IsSmarttv(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("is_smarttv")
+		device.GetStaticCap("is_smarttv")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheLimited_ModelName(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheLimited_ModelName(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheLimited)
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	modelName := device.GetCapability("model_name")
+	modelName, _ := device.GetStaticCap("model_name")
 	if modelName == "" {
 		b.Error("capability model_name must have a value")
 	}
@@ -1265,18 +1264,18 @@ func Benchmark_GetCapability_FallbackCacheLimited_ModelName(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("model_name")
+		device.GetStaticCap("model_name")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheLimited_IsSmarttv(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheLimited_IsSmarttv(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheLimited)
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	isSmarttv := device.GetCapability("is_smarttv")
+	isSmarttv, _ := device.GetStaticCap("is_smarttv")
 	if isSmarttv == "" {
 		b.Error("capability is_smarttv must have a value")
 	}
@@ -1305,18 +1304,18 @@ func Benchmark_GetCapability_FallbackCacheLimited_IsSmarttv(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("is_smarttv")
+		device.GetStaticCap("is_smarttv")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheDisabled_ModelName(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheDisabled_ModelName(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	modelName := device.GetCapability("model_name")
+	modelName, _ := device.GetStaticCap("model_name")
 	if modelName == "" {
 		b.Error("capability model_name must have a value")
 	}
@@ -1345,18 +1344,18 @@ func Benchmark_GetCapability_FallbackCacheDisabled_ModelName(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("model_name")
+		device.GetStaticCap("model_name")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheDisabled_IsSmarttv(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheDisabled_IsSmarttv(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	isSmarttv := device.GetCapability("is_smarttv")
+	isSmarttv, _ := device.GetStaticCap("is_smarttv")
 	if isSmarttv == "" {
 		b.Error("capability is_smarttv must have a value")
 	}
@@ -1385,18 +1384,18 @@ func Benchmark_GetCapability_FallbackCacheDisabled_IsSmarttv(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("is_smarttv")
+		device.GetStaticCap("is_smarttv")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheDisabled_MarketingName(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheDisabled_MarketingName(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
 	device, err := wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-	mktName := device.GetCapability("marketing_name")
+	mktName, _ := device.GetStaticCap("marketing_name")
 	if mktName == "" {
 		b.Error("capability marketing_name must have a value")
 	}
@@ -1425,18 +1424,18 @@ func Benchmark_GetCapability_FallbackCacheDisabled_MarketingName(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("marketing_name")
+		device.GetStaticCap("marketing_name")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheDefault_MarketingName(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheDefault_MarketingName(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
 	device, err := wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-	mktName := device.GetCapability("marketing_name")
+	mktName, _ := device.GetStaticCap("marketing_name")
 	if mktName == "" {
 		b.Error("capability marketing_name must have a value")
 	}
@@ -1465,18 +1464,18 @@ func Benchmark_GetCapability_FallbackCacheDefault_MarketingName(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("marketing_name")
+		device.GetStaticCap("marketing_name")
 	}
 
 	b.StopTimer()
 }
 
-func Benchmark_GetCapability_FallbackCacheLimited_MarketingName(b *testing.B) {
+func Benchmark_GetStaticCap_FallbackCacheLimited_MarketingName(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheLimited)
 	device, err := wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-	mktName := device.GetCapability("marketing_name")
+	mktName, _ := device.GetStaticCap("marketing_name")
 	if mktName == "" {
 		b.Error("capability marketing_name must have a value")
 	}
@@ -1505,14 +1504,14 @@ func Benchmark_GetCapability_FallbackCacheLimited_MarketingName(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("marketing_name")
+		device.GetStaticCap("marketing_name")
 	}
 
 	b.StopTimer()
 }
 
 // Benchmark_GetCapability : test time in single const get_capability
-func Benchmark_GetCapability(b *testing.B) {
+func Benchmark_GetStaticCap(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
@@ -1529,7 +1528,7 @@ func Benchmark_GetCapability(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		device.GetCapability("device_os")
+		device.GetStaticCap("device_os")
 	}
 
 	b.StopTimer()
