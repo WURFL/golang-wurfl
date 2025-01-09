@@ -451,16 +451,6 @@ func Test_LookupWithImportantHeaderMap(t *testing.T) {
 	wengine.Destroy()
 }
 
-// support issue #3267, INFUZE-1053
-/*
-original support function (does not compile as-is)
-func lookUpUserAgent(ua string, capabilities []string) map[string]string {
-	device, werr := wengine.LookupUserAgent(ua)
-	defer device.Destroy()
-	PrintError(werr)
-	return device.GetCapabilities(capabilities)
-}
-*/
 
 func lookUpUserAgent(wengine *wurfl.Wurfl, ua string, capabilities []string) map[string]string {
 	device, _ := wengine.LookupUserAgent(ua)
@@ -798,23 +788,6 @@ func TestWurfl_Getters(t *testing.T) {
 	i := wengine.GetInfo()
 	if len(i) < 5 {
 		t.Errorf("Wrong wurfl info %s", i)
-	}
-
-	a := wengine.GetInfo()
-	if len(a) < 3 {
-		t.Errorf("Wrong wurfl info %s", a)
-	}
-
-	e := wengine.GetEngineTarget()
-	if len(e) < 6 {
-		t.Errorf("Wrong engine target %s", e)
-	}
-
-	wengine.SetUserAgentPriority(wurfl.WurflUserAgentPriorityUsePlainUserAgent)
-
-	p := wengine.GetUserAgentPriority()
-	if len(p) < 4 {
-		t.Errorf("Wrong Useragent Priority %s", p)
 	}
 
 	if wengine.HasVirtualCapability("pippo") != false {
@@ -1852,7 +1825,7 @@ func TestDevice_GetRootID(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
 	defer wengine.Destroy()
 
-	/**\
+	/**
 	* This device have no device roots in its fall back tree,
 	* since no devices above it (itself included) are real devices (actual device roots),
 	* in this case "" is expected.

@@ -133,7 +133,6 @@ type Device struct {
 // WurflHandler defines API methods for the Wurfl Infuze handle
 type WurflHandler interface {
 	GetAPIVersion() string
-	Download(url string, folder string) error
 	SetLogPath(LogFile string) error
 	IsUserAgentFrozen(ua string) bool
 	LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[string]string) (DeviceHandler, error)
@@ -192,34 +191,8 @@ type Updater interface {
 	GetUpdaterUserAgent() string
 }
 
-// 1.8: set_engine_target has no effect anymore from 1.9.5.0
-// 1.9: INFUZE-1052 Remove call to deprecated methods (to avoid warnings during compile)
-// 1.10: INFUZE-1059 optimize creation/destruction of important headers names C strings and use them everywhere
-// 1.11: increase GetAllDeviceIds slice capacity to reduce memory usage per operation
-// 1.12: new method ApiVersion that don't need engine to be initialized
-// 1.13: new method for setting attributes
-// 1.14: new method for getting attributes
-// 1.15: new methods IsUserAgentFrozen and GetHeaderQuality
-// 1.16: new methods SetUpdaterUserAgent and GetUpdaterUserAgent
-// 1.17: new methods GetCapabilityAsInt and GetVirtualCapabilityAsInt
-// 1.18: new method GetParentID
-// 1.19: speed ups, benchmarks
-// 1.20: WurflAttrcapabilityFallbackCache attr and its values
-// 1.21: faster Get*Capability*() methods by using CString cache, benchmarks to verify, new tests
-// 1.22: fix leak on caps Cstring cache, added SetLogPath(), added cap/vcap methods that manage the error
-// GetVirtualCap(vcap string) (string, error), GetStaticCap(cap string) (string, error)
-// 1.23: Added SetUpdaterUserAgent() to indicate binding in updater useragent
-// 1.24: Fixed typo in SetUpdaterUserAgent()
-// 1.25: Added new method Download() to get a fresh copy of the WURFL data file
-// 1.26: Module version exposed, made LookupWithImportantHeaderMap() method case insensitive on header names
-// and new method GetLastUpdated()
-// 1.27: GetStaticCaps() and GetVirtualCaps() return map with caps/vcaps found and last error detected (if any)
-// 1.28: - double lru cache does not exist anymore, kept in constants only to not break existing code
-// 1.29: best practice is to have interface inside package file, not in a separate file
-// 1.30: first public release
-
 // Version is the current version of this package.
-var Version = "1.30"
+const Version = "1.30.1"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
@@ -278,7 +251,6 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 		cpatch := C.CString(Patches[i])
 		C.wurfl_add_patch(w.Wurfl, cpatch)
 		C.free(unsafe.Pointer(cpatch))
-		//fmt.Println("Adding patch file : ", Patches[i])
 	}
 
 	// filter capabilities in engine
@@ -286,7 +258,6 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 		ccap := C.CString(CapFilter[i])
 		C.wurfl_add_requested_capability(w.Wurfl, ccap)
 		C.free(unsafe.Pointer(ccap))
-		//fmt.Println("Adding patch file : ", ccap[i])
 	}
 
 	// loading engine
@@ -312,10 +283,6 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 		C.wurfl_important_header_enumerator_move_next(ihe)
 	}
 	C.wurfl_important_header_enumerator_destroy(ihe)
-
-	// print slice
-	// fmt.Printf("len=%d cap=%d %v\n", len(w.ImportantHeaderNames), cap(w.ImportantHeaderNames), w.ImportantHeaderNames)
-	// fmt.Println(w.ImportantHeaderNames)
 
 	// initialize caps/vcaps CString cache for faster calls to libwurfl
 
@@ -527,7 +494,6 @@ func (w *Wurfl) UpdaterStart() error {
 
 // UpdaterStop - stop the updater thread
 func (w *Wurfl) UpdaterStop() error {
-	//     LIBWURFLAPI wurfl_error wurfl_updater_stop(wurfl_handle hwurfl);
 	if C.wurfl_updater_stop(w.Wurfl) != C.WURFL_OK {
 		err := C.wurfl_get_error_message(w.Wurfl)
 		return errors.New(C.GoString(err))
@@ -592,7 +558,6 @@ func (w *Wurfl) GetLastUpdated() string {
 // GetEngineTarget - Returns a string representing the currently set WURFL Engine Target. Possible values are "HIGH_ACCURACY", "HIGH_PERFORMANCE" or "INVALID".
 // DEPRECATED: will always return default value
 func (w *Wurfl) GetEngineTarget() string {
-	// return C.GoString(C.wurfl_get_engine_target_as_string(w.Wurfl))
 	return "DEFAULT"
 }
 
@@ -605,7 +570,6 @@ func (w *Wurfl) SetUserAgentPriority(prio int) {
 // GetUserAgentPriority - Tells if WURFL is using the plain user agent or the sideloaded browser user agent for device detection
 // DEPRECATED: will always return default value
 func (w *Wurfl) GetUserAgentPriority() string {
-	// return C.GoString(C.wurfl_get_useragent_priority_as_string(w.Wurfl))
 	return "OVERRIDE SIDELOADED BROWSER USERAGENT"
 }
 
@@ -1174,7 +1138,6 @@ func (d *Device) GetMatchType() int {
 // are not needed anymore
 func (d *Device) Destroy() {
 	if d.Device != nil {
-		//fmt.Println("wurfl_device_destroy() called")
 		C.wurfl_device_destroy(d.Device)
 		d.Device = nil
 	}
