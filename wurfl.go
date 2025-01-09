@@ -191,34 +191,8 @@ type Updater interface {
 	GetUpdaterUserAgent() string
 }
 
-// 1.8: set_engine_target has no effect anymore from 1.9.5.0
-// 1.9: INFUZE-1052 Remove call to deprecated methods (to avoid warnings during compile)
-// 1.10: INFUZE-1059 optimize creation/destruction of important headers names C strings and use them everywhere
-// 1.11: increase GetAllDeviceIds slice capacity to reduce memory usage per operation
-// 1.12: new method ApiVersion that don't need engine to be initialized
-// 1.13: new method for setting attributes
-// 1.14: new method for getting attributes
-// 1.15: new methods IsUserAgentFrozen and GetHeaderQuality
-// 1.16: new methods SetUpdaterUserAgent and GetUpdaterUserAgent
-// 1.17: new methods GetCapabilityAsInt and GetVirtualCapabilityAsInt
-// 1.18: new method GetParentID
-// 1.19: speed ups, benchmarks
-// 1.20: WurflAttrcapabilityFallbackCache attr and its values
-// 1.21: faster Get*Capability*() methods by using CString cache, benchmarks to verify, new tests
-// 1.22: fix leak on caps Cstring cache, added SetLogPath(), added cap/vcap methods that manage the error
-// GetVirtualCap(vcap string) (string, error), GetStaticCap(cap string) (string, error)
-// 1.23: Added SetUpdaterUserAgent() to indicate binding in updater useragent
-// 1.24: Fixed typo in SetUpdaterUserAgent()
-// 1.25: Added new method Download() to get a fresh copy of the WURFL data file
-// 1.26: Module version exposed, made LookupWithImportantHeaderMap() method case insensitive on header names
-// and new method GetLastUpdated()
-// 1.27: GetStaticCaps() and GetVirtualCaps() return map with caps/vcaps found and last error detected (if any)
-// 1.28: - double lru cache does not exist anymore, kept in constants only to not break existing code
-// 1.29: best practice is to have interface inside package file, not in a separate file
-// 1.30: first public release
-
 // Version is the current version of this package.
-const Version = "1.30.0"
+const Version = "1.30.1"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
