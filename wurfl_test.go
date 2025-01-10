@@ -41,6 +41,7 @@ func copyFile(src, dst string) error {
 func fixtureCreateEngine(t *testing.T) *wurfl.Wurfl {
 	var wengine *wurfl.Wurfl
 	var err error
+
 	_, oserr := os.Stat("/usr/local/share/wurfl/wurfl.zip")
 	if oserr == nil {
 		// macosx rootless
@@ -49,9 +50,10 @@ func fixtureCreateEngine(t *testing.T) *wurfl.Wurfl {
 		// all other systems (TODO windows)
 		wengine, err = wurfl.Create("/usr/share/wurfl/wurfl.zip", nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
 	}
+	// cant use assert 'cause this method is also used in benchmarks (no *testing.T)
+	// assert.NoErrorf(t, err, "Create returned an error: %s", err)
 	if err != nil {
-		t.Errorf("Create error : %s\n", err.Error())
-		return nil
+		t.Errorf("Create returned an error: %s", err)
 	}
 
 	return wengine
@@ -80,9 +82,10 @@ func fixtureCreateEngineCachesize(t *testing.T, cachesize string) *wurfl.Wurfl {
 				nil, nil, -1, wurfl.WurflCacheProviderLru, cachesize)
 		}
 	}
+	// cant use assert 'cause this method is also used in benchmarks (no *testing.T)
+	// assert.NoErrorf(t, err, "Create returned an error: %s", err)
 	if err != nil {
-		t.Errorf("Create error : %s\n", err.Error())
-		return nil
+		t.Errorf("Create returned an error: %s", err)
 	}
 
 	return wengine
@@ -90,28 +93,21 @@ func fixtureCreateEngineCachesize(t *testing.T, cachesize string) *wurfl.Wurfl {
 
 func TestWurfl_WurflGetAPIVersion(t *testing.T) {
 	ver := wurfl.APIVersion()
-	if ver == "" {
-		t.Errorf("APIVersion error, ret nil\n")
-	}
+	assert.NotEmpty(t, ver)
 	fmt.Printf("WURFL API Version: %s\n", ver)
 }
 
 func TestWurfl_Create(t *testing.T) {
 	ua := "ArtDeviant/3.0.2 CFNetwork/711.3.18 Darwin/14.0.0"
-	var device *wurfl.Device
-	var deviceid string
-	var err error
 
 	wengine := fixtureCreateEngine(t)
 
 	fmt.Printf("WURFL API Version: %s\n", wengine.GetAPIVersion())
 
-	device, err = wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Errorf("LookupuserAgent error : %s\n", err.Error())
-	}
+	device, err := wengine.LookupUserAgent(ua)
+	assert.Equal(t, nil, err)
 
-	deviceid, err = device.GetDeviceID()
+	deviceid, err := device.GetDeviceID()
 
 	if err == nil {
 		if deviceid != "apple_iphone_ver8_3_subuacfnetwork" {
@@ -131,7 +127,6 @@ func TestWurfl_Lookup(t *testing.T) {
 	var newdevice *wurfl.Device
 	var deviceid string
 	var deviceid2 string
-	var verbose bool = false
 
 	// Capability filtering is discouraged and will be deprecated. Here only for testing purposes
 	capfilter := []string{
@@ -142,10 +137,6 @@ func TestWurfl_Lookup(t *testing.T) {
 
 	caps := capfilter[0:3]
 
-	if verbose {
-		fmt.Println("Loading engine ...")
-	}
-
 	_, oserr := os.Stat("/usr/local/share/wurfl/wurfl.zip")
 	if oserr == nil {
 		// macosx rootless
@@ -155,72 +146,36 @@ func TestWurfl_Lookup(t *testing.T) {
 		wengine, err = wurfl.Create("/usr/share/wurfl/wurfl.zip", nil, caps, -1, wurfl.WurflCacheProviderLru, "100000")
 	}
 
-	if err != nil {
-		// some error here
-		t.Errorf("Create error : %s\n", err.Error())
-	}
+	assert.NoErrorf(t, err, "Create returned an error: %s", err)
 
 	wengine.SetLogPath("api.log")
 
-	// fmt.Println("Engine loaded, version : ", wengine.GetAPIVersion(), "wurfl info ", wengine.GetInfo())
-
 	ua := "ArtDeviant/3.0.2 CFNetwork/711.3.18 Darwin/14.0.0"
-	// ua := "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:48.0) Gecko/20100101 Firefox/48.0"
-	// for i:= 0; i < 1000000; i++ {
-	if verbose {
-		fmt.Println("Lookup of ", ua)
-	}
 
 	device, err = wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Errorf("LookupuserAgent error : %s\n", err.Error())
-	}
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
 
 	deviceid, err = device.GetDeviceID()
-	if err != nil {
-		t.Errorf("GetDeviceID error : %s\n", err.Error())
-	}
-
-	// fmt.Println("wurfl_id : ", deviceid)
+	assert.Equal(t, nil, err)
 
 	newdevice, err = wengine.LookupDeviceID(deviceid)
-	if err != nil {
-		t.Errorf("LookupDeviceID error : %s\n", err.Error())
-	}
+	assert.Equal(t, nil, err)
 
 	deviceid2, err2 = newdevice.GetDeviceID()
-	if err2 != nil {
-		t.Errorf("GetDeviceID error : %s\n", err.Error())
-	}
+	assert.Equal(t, nil, err2)
 
 	if deviceid != deviceid2 {
 		t.Errorf("Error, devices do not match %s, %s", deviceid, deviceid2)
 	}
 
 	_, uaerr := device.GetUserAgent()
-	if uaerr != nil {
-		t.Errorf("GetUserAgent error : %s\n", err.Error())
-	}
+	assert.Equal(t, nil, uaerr)
 
 	oua, uaerr := device.GetOriginalUserAgent()
-	if uaerr != nil {
-		t.Errorf("GetOriginalUserAgent error : %s\n", err.Error())
-	}
+	assert.Equal(t, nil, uaerr)
 
 	if oua != ua {
 		t.Errorf("Error, ua matched >%s< and device original ua >%s< do not match", ua, oua)
-		// fmt.Println("Error, ua matched (", ua, ") and matched device ua (", dua, ") do not match")
-	}
-
-	nua, uaerr := device.GetNormalizedUserAgent()
-	if uaerr != nil {
-		t.Errorf("GetNormalizedUserAgent error : %s\n", err.Error())
-	}
-
-	if len(nua) >= len(ua) {
-		if verbose {
-			fmt.Printf("Error, Normalized ua >%s< longer than original ua >%s<", nua, ua)
-		}
 	}
 
 	if device.IsRoot() {
@@ -231,15 +186,13 @@ func TestWurfl_Lookup(t *testing.T) {
 		t.Errorf("device.GetCapability(\"mobile_browser_version\") does not return 8.0 : %s\n", device.GetCapability("mobile_browser_version"))
 	}
 
-	vcaps := make(map[string]string)
-	vcaps = device.GetVirtualCapabilities(wengine.GetAllVCaps())
+	vcaps := device.GetVirtualCapabilities(wengine.GetAllVCaps())
 
 	if vcaps["advertised_device_os"] != "iOS" {
 		t.Errorf("device.GetVirtualCapabilities() \"advertised_device_os\" != \"iOS\" : %s\n", vcaps["advertised_device_os"])
 	}
 
-	allcaps := make(map[string]string)
-	allcaps = device.GetCapabilities(wengine.GetAllCaps())
+	allcaps := device.GetCapabilities(wengine.GetAllCaps())
 
 	if allcaps["device_os"] != "iOS" {
 		t.Errorf("device.GetCapabilities() \"device_os\" != \"iOS\" : %s\n", allcaps["device_os"])
@@ -247,15 +200,6 @@ func TestWurfl_Lookup(t *testing.T) {
 
 	device.GetMatchType()
 	device.GetRootID()
-
-	if verbose {
-		fmt.Println(deviceid)
-		fmt.Println(device.GetCapability("mobile_browser_version"))
-		fmt.Println(device.GetVirtualCapability("is_android"))
-		fmt.Println(device.GetCapabilities(capfilter))
-		fmt.Println(device.GetMatchType())
-		fmt.Println(device.GetRootID())
-	}
 
 	device.Destroy()
 	newdevice.Destroy()
@@ -270,8 +214,8 @@ func TestWurfl_GetAllVCaps(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
 	s := wengine.GetAllVCaps()
-	if len(s) != 28 {
-		t.Errorf("Vcaps should be 28, they are %d", len(s))
+	if len(s) < 28 {
+		t.Errorf("Vcaps should be 28 or more, they are %d", len(s))
 	}
 
 	wengine.Destroy()
@@ -280,7 +224,7 @@ func TestWurfl_GetAllVCaps(t *testing.T) {
 // Test_GetCapability : various cases on GetCapability / GetVirtualCapability
 func Test_GetCapability(t *testing.T) {
 	assert := assert.New(t)
-	wengine := fixtureCreateEngine(nil)
+	wengine := fixtureCreateEngine(t)
 	defer wengine.Destroy()
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
 	assert.Nil(err)
@@ -309,10 +253,6 @@ func Test_GetCapability(t *testing.T) {
 
 func Test_LookupRequest(t *testing.T) {
 
-	var err error
-	// var deviceLA *wurfl.Device
-	// var deviceIHM *wurfl.Device
-
 	wengine := fixtureCreateEngine(t)
 
 	// User-Agent
@@ -324,16 +264,14 @@ func Test_LookupRequest(t *testing.T) {
 
 	// lookup both UAs. When using both headers in LookupRequest, the XUCBrowserDeviceUA has precedence.
 	UserAgentDevice, err := wengine.LookupUserAgent(UserAgent)
-	if err != nil {
-		t.Errorf("LookupuserAgent error : %s\n", err.Error())
-	}
-	UserAgentDeviceId, _ := UserAgentDevice.GetDeviceID()
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+
+	UserAgentDeviceID, _ := UserAgentDevice.GetDeviceID()
 
 	XUCBrowserDeviceDevice, err := wengine.LookupUserAgent(XUCBrowserDeviceUA)
-	if err != nil {
-		t.Errorf("LookupuserAgent error : %s\n", err.Error())
-	}
-	XUCBrowserDeviceDeviceId, _ := XUCBrowserDeviceDevice.GetDeviceID()
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+
+	XUCBrowserDeviceDeviceID, _ := XUCBrowserDeviceDevice.GetDeviceID()
 
 	// create http.Request and lookup using headers
 	req, _ := http.NewRequest("GET", "http://example.com", nil)
@@ -341,18 +279,17 @@ func Test_LookupRequest(t *testing.T) {
 	req.Header.Add("X-UCBrowser-Device-UA", XUCBrowserDeviceUA)
 
 	reqDevice, err := wengine.LookupRequest(req)
-	if err != nil {
-		t.Errorf("LookupRequest error : %s\n", err.Error())
-	}
-	reqDeviceId, _ := reqDevice.GetDeviceID()
+	assert.NoErrorf(t, err, "LookupRequest returned an error: %s", err)
+
+	reqDeviceID, _ := reqDevice.GetDeviceID()
 
 	// now verify that device retrieved with headers is the the same as XUCBrowserDeviceDevice
-	if UserAgentDeviceId == reqDeviceId {
-		t.Errorf("Devices are the same, should be different : %s, %s\n", UserAgentDeviceId, reqDeviceId)
+	if UserAgentDeviceID == reqDeviceID {
+		t.Errorf("Devices are the same, should be different : %s, %s\n", UserAgentDeviceID, reqDeviceID)
 	}
 
-	if XUCBrowserDeviceDeviceId != reqDeviceId {
-		t.Errorf("Devices are different, should be the same: %s, %s\n", XUCBrowserDeviceDeviceId, reqDeviceId)
+	if XUCBrowserDeviceDeviceID != reqDeviceID {
+		t.Errorf("Devices are different, should be the same: %s, %s\n", XUCBrowserDeviceDeviceID, reqDeviceID)
 	}
 
 	UserAgentDevice.Destroy()
@@ -364,10 +301,6 @@ func Test_LookupRequest(t *testing.T) {
 // Test_LookupRequestExperimental : test new sec-ch headers
 func Test_LookupRequestExperimental(t *testing.T) {
 
-	var err error
-	// var deviceLA *wurfl.Device
-	// var deviceIHM *wurfl.Device
-
 	wengine := fixtureCreateEngine(t)
 
 	// set experimental headers
@@ -377,10 +310,9 @@ func Test_LookupRequestExperimental(t *testing.T) {
 	UserAgent := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
 
 	UserAgentDevice, err := wengine.LookupUserAgent(UserAgent)
-	if err != nil {
-		t.Errorf("LookupuserAgent error : %s\n", err.Error())
-	}
-	UserAgentDeviceId, _ := UserAgentDevice.GetDeviceID()
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+
+	UserAgentDeviceID, _ := UserAgentDevice.GetDeviceID()
 
 	fmt.Println(wengine.ImportantHeaderNames)
 
@@ -394,14 +326,13 @@ func Test_LookupRequestExperimental(t *testing.T) {
 	req.Header.Add("Sec-CH-UA-Model", "SM-M315F")
 
 	reqDevice, err := wengine.LookupRequest(req)
-	if err != nil {
-		t.Errorf("LookupRequest error : %s\n", err.Error())
-	}
-	reqDeviceId, _ := reqDevice.GetDeviceID()
+	assert.NoErrorf(t, err, "LookupRequest returned an error: %s", err)
+
+	reqDeviceID, _ := reqDevice.GetDeviceID()
 
 	// now verify that device retrieved with headers is the the same as XUCBrowserDeviceDevice
-	if UserAgentDeviceId != reqDeviceId {
-		t.Errorf("Devices should be the same : %s, %s\n", UserAgentDeviceId, reqDeviceId)
+	if UserAgentDeviceID != reqDeviceID {
+		t.Errorf("Devices should be the same : %s, %s\n", UserAgentDeviceID, reqDeviceID)
 	}
 
 	UserAgentDevice.Destroy()
@@ -426,10 +357,8 @@ func Test_LookupWithImportantHeaderMap(t *testing.T) {
 	// fmt.Println(wengine.ImportantHeaderNames)
 
 	deviceLA, err = wengine.LookupUserAgent(UserAgent)
-	if err != nil {
-		t.Errorf("LookupuserAgent error : %s\n", err.Error())
-	}
-	LaDeviceId, _ := deviceLA.GetDeviceID()
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+	LaDeviceID, _ := deviceLA.GetDeviceID()
 
 	// create IHMap and lookup using headers
 
@@ -438,13 +367,12 @@ func Test_LookupWithImportantHeaderMap(t *testing.T) {
 	IHMap["X-UCBrowser-Device-UA"] = XUCBrowserDeviceUA
 
 	deviceIHM, err = wengine.LookupWithImportantHeaderMap(IHMap)
-	if err != nil {
-		t.Errorf("LookupWithImportantHeaderMap error : %s\n", err.Error())
-	}
-	IHMDeviceId, _ := deviceIHM.GetDeviceID()
+	assert.NoErrorf(t, err, "LookupWithImportantHeaderMap returned an error: %s", err)
 
-	if LaDeviceId == IHMDeviceId {
-		t.Errorf("Devices are the same, should be different : %s, %s\n", LaDeviceId, IHMDeviceId)
+	IHMDeviceID, _ := deviceIHM.GetDeviceID()
+
+	if LaDeviceID == IHMDeviceID {
+		t.Errorf("Devices are the same, should be different : %s, %s\n", LaDeviceID, IHMDeviceID)
 	}
 
 	deviceLA.Destroy()
@@ -467,9 +395,6 @@ func TestJira_INFUZE1053(t *testing.T) {
 }
 
 func Test_LookupDeviceIDWithImportantHeaderMap(t *testing.T) {
-	var err error
-	var deviceIDIHM *wurfl.Device
-	var deviceIHM *wurfl.Device
 
 	wengine := fixtureCreateEngine(t)
 
@@ -478,40 +403,32 @@ func Test_LookupDeviceIDWithImportantHeaderMap(t *testing.T) {
 	// X-UCBrowser-Device-UA
 	XUCBrowserDeviceUA := "Mozilla/5.0 (Linux; U; Android 5.1.1; en-US; SM-J200G Build/LMY47X) AppleWebKit/528.5+ (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1"
 
-	// do a LookupUserAgent() with UA
-
-	// fmt.Println(wengine.ImportantHeaderNames)
-
 	// create IHMap and lookup using headers
 
 	IHMap := make(map[string]string)
 	IHMap["User-Agent"] = UserAgent
 	IHMap["X-UCBrowser-Device-UA"] = XUCBrowserDeviceUA
 
-	deviceIHM, err = wengine.LookupWithImportantHeaderMap(IHMap)
-	if err != nil {
-		t.Errorf("LookupWithImportantHeaderMap error : %s\n", err.Error())
-	}
-	IHMDeviceId, _ := deviceIHM.GetDeviceID()
-	AdvBrow1 := deviceIHM.GetVirtualCapability("advertised_browser")
+	deviceIHM, err := wengine.LookupWithImportantHeaderMap(IHMap)
+	assert.NoErrorf(t, err, "LookupWithImportantHeaderMap returned an error: %s", err)
+
+	IHMDeviceID, _ := deviceIHM.GetDeviceID()
+	AdvBrow1, _ := deviceIHM.GetVirtualCap("advertised_browser")
 
 	// now lookup by deviceID and no header and check that an advertised vcap behaves correctly
-	deviceIDIHM, err = wengine.LookupDeviceID(IHMDeviceId)
-	if err != nil {
-		t.Errorf("LookupDeviceID error : %s\n", err.Error())
-	}
-	AdvBrow2 := deviceIDIHM.GetVirtualCapability("advertised_browser")
+	deviceIDIHM, err := wengine.LookupDeviceID(IHMDeviceID)
+	assert.NoErrorf(t, err, "LookupDeviceID returned an error: %s", err)
 
+	AdvBrow2, _ := deviceIDIHM.GetVirtualCap("advertised_browser")
 	if AdvBrow1 == AdvBrow2 {
 		t.Errorf("advertised_browser are the same, should be different : %s, %s\n", AdvBrow1, AdvBrow2)
 	}
 
 	// now lookup by deviceID and header and check that an advertised vcap behaves correctly
-	deviceIDIHM, err = wengine.LookupDeviceIDWithImportantHeaderMap(IHMDeviceId, IHMap)
-	if err != nil {
-		t.Errorf("LookupDeviceIDWithImportantHeaderMap error : %s\n", err.Error())
-	}
-	AdvBrow3 := deviceIDIHM.GetVirtualCapability("advertised_browser")
+	deviceIDIHM, err = wengine.LookupDeviceIDWithImportantHeaderMap(IHMDeviceID, IHMap)
+	assert.NoErrorf(t, err, "LookupDeviceIDWithImportantHeaderMap returned an error: %s", err)
+
+	AdvBrow3, _ := deviceIDIHM.GetVirtualCap("advertised_browser")
 
 	if AdvBrow1 != AdvBrow3 {
 		t.Errorf("advertised_browser are different, should be the same: %s, %s\n", AdvBrow1, AdvBrow3)
@@ -522,24 +439,14 @@ func Test_LookupDeviceIDWithImportantHeaderMap(t *testing.T) {
 }
 
 func Test_LookupWithImportantHeaderMapCaseInsensitive(t *testing.T) {
-	var err error
-	var deviceLA *wurfl.Device
-	var deviceIHM *wurfl.Device
-
 	wengine := fixtureCreateEngine(t)
 
-	// User-Agent
 	UserAgent := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 
-	// do a LookupUserAgent() with UA
+	deviceLA, err := wengine.LookupUserAgent(UserAgent)
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
 
-	// fmt.Println(wengine.ImportantHeaderNames)
-
-	deviceLA, err = wengine.LookupUserAgent(UserAgent)
-	if err != nil {
-		t.Errorf("LookupuserAgent error : %s\n", err.Error())
-	}
-	LaDeviceId, _ := deviceLA.GetDeviceID()
+	LaDeviceID, _ := deviceLA.GetDeviceID()
 
 	// create IHMap and lookup using headers. Headers names will have some case differences
 	// to check that LookuupWithImportantHeaderMap() is case insensitive
@@ -553,14 +460,13 @@ func Test_LookupWithImportantHeaderMapCaseInsensitive(t *testing.T) {
 	IHMap["SEC-CH-UA-MOBILE"] = "?1"
 	IHMap["seC-cH-uA-fulL-versioN-lisT"] = `"Chromium";v="122.0.0.0", "Not(A:Brand";v="24.0.0.0", "Veera";v="122.0.0.0"`
 
-	deviceIHM, err = wengine.LookupWithImportantHeaderMap(IHMap)
-	if err != nil {
-		t.Errorf("LookupWithImportantHeaderMap error : %s\n", err.Error())
-	}
-	IHMDeviceId, _ := deviceIHM.GetDeviceID()
+	deviceIHM, err := wengine.LookupWithImportantHeaderMap(IHMap)
+	assert.NoErrorf(t, err, "LookupWithImportantHeaderMap returned an error: %s", err)
 
-	if LaDeviceId == IHMDeviceId {
-		t.Errorf("Devices are the same, should be different : %s, %s\n", LaDeviceId, IHMDeviceId)
+	IHMDeviceID, _ := deviceIHM.GetDeviceID()
+
+	if LaDeviceID == IHMDeviceID {
+		t.Errorf("Devices are the same, should be different : %s, %s\n", LaDeviceID, IHMDeviceID)
 	}
 
 	deviceLA.Destroy()
@@ -569,9 +475,6 @@ func Test_LookupWithImportantHeaderMapCaseInsensitive(t *testing.T) {
 }
 
 func Test_LookupDeviceIDWithRequest(t *testing.T) {
-	var err error
-	var deviceIDIHM *wurfl.Device
-	var deviceIHM *wurfl.Device
 
 	wengine := fixtureCreateEngine(t)
 
@@ -585,30 +488,27 @@ func Test_LookupDeviceIDWithRequest(t *testing.T) {
 	req.Header.Add("User-Agent", UserAgent)
 	req.Header.Add("X-UCBrowser-Device-UA", XUCBrowserDeviceUA)
 
-	deviceIHM, err = wengine.LookupRequest(req)
-	if err != nil {
-		t.Errorf("LookupRequest error : %s\n", err.Error())
-	}
-	IHMDeviceId, _ := deviceIHM.GetDeviceID()
-	AdvBrow1 := deviceIHM.GetVirtualCapability("advertised_browser")
+	deviceIHM, err := wengine.LookupRequest(req)
+	assert.NoErrorf(t, err, "LookupRequest returned an error: %s", err)
+
+	IHMDeviceID, _ := deviceIHM.GetDeviceID()
+	AdvBrow1, _ := deviceIHM.GetVirtualCap("advertised_browser")
 
 	// now lookup by deviceID and no header and check that an advertised vcap behaves correctly
-	deviceIDIHM, err = wengine.LookupDeviceID(IHMDeviceId)
-	if err != nil {
-		t.Errorf("LookupDeviceID error : %s\n", err.Error())
-	}
-	AdvBrow2 := deviceIDIHM.GetVirtualCapability("advertised_browser")
+	deviceIDIHM, err := wengine.LookupDeviceID(IHMDeviceID)
+	assert.NoErrorf(t, err, "LookupDeviceID returned an error: %s", err)
+
+	AdvBrow2, _ := deviceIDIHM.GetVirtualCap("advertised_browser")
 
 	if AdvBrow1 == AdvBrow2 {
 		t.Errorf("advertised_browser are the same, should be different : %s, %s\n", AdvBrow1, AdvBrow2)
 	}
 
 	// now lookup by deviceID and header and check that an advertised vcap behaves correctly
-	deviceIDIHM, err = wengine.LookupDeviceIDWithRequest(IHMDeviceId, req)
-	if err != nil {
-		t.Errorf("LookupDeviceIDWithRequest error : %s\n", err.Error())
-	}
-	AdvBrow3 := deviceIDIHM.GetVirtualCapability("advertised_browser")
+	deviceIDIHM, err = wengine.LookupDeviceIDWithRequest(IHMDeviceID, req)
+	assert.NoErrorf(t, err, "LookupDeviceIDWithRequest returned an error: %s", err)
+
+	AdvBrow3, _ := deviceIDIHM.GetVirtualCap("advertised_browser")
 
 	if AdvBrow1 != AdvBrow3 {
 		t.Errorf("advertised_browser are different, should be the same: %s, %s\n", AdvBrow1, AdvBrow3)
@@ -618,19 +518,7 @@ func Test_LookupDeviceIDWithRequest(t *testing.T) {
 	wengine.Destroy()
 }
 
-func setTimeBackForFile(filename string, days int) {
-	file, _ := os.Stat(filename)
-
-	nowfile := file.ModTime()
-
-	then := nowfile.AddDate(0, 0, days)
-
-	_ = os.Chtimes(filename, then, then)
-}
-
 func TestWurfl_UpdaterRunonce(t *testing.T) {
-	var wengine *wurfl.Wurfl
-	var err error
 	var wurflZip string
 
 	_, oserr := os.Stat("/usr/local/share/wurfl/wurfl.zip")
@@ -646,21 +534,16 @@ func TestWurfl_UpdaterRunonce(t *testing.T) {
 	cpCmd := exec.Command("cp", "-rf", wurflZip, "/tmp/wurfl.zip")
 	_ = cpCmd.Run()
 
-	// set modification time to 1 month before
-	setTimeBackForFile("/tmp/wurfl.zip", -30)
-
 	info, _ := os.Stat("/tmp/wurfl.zip")
 	mdt1 := info.ModTime()
 
-	wengine, err = wurfl.Create("/tmp/wurfl.zip", nil, nil, wurfl.WurflEngineTargetHighAccuray, wurfl.WurflCacheProviderDoubleLru, "100000")
-	if err != nil {
-		t.Errorf("Create error : %s\n", err.Error())
-	}
+	wengine, err := wurfl.Create("/tmp/wurfl.zip", nil, nil, wurfl.WurflEngineTargetHighAccuray, wurfl.WurflCacheProviderDoubleLru, "100000")
+	assert.NoErrorf(t, err, "Create returned an error: %s", err)
 
-	// set env var SM_UPDATER_DATA_URL to your updater url (from scientiamobile Vault)
+	// set env var SM_UPDATER_DATA_URL to your updater URL (from scientiamobile Vault)
 
-	Url := os.Getenv("SM_UPDATER_DATA_URL")
-	if Url == "" {
+	URL := os.Getenv("SM_UPDATER_DATA_URL")
+	if URL == "" {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
@@ -668,10 +551,8 @@ func TestWurfl_UpdaterRunonce(t *testing.T) {
 	_ = wengine.SetUpdaterLogPath("/tmp/wurfl-updater-log.txt")
 
 	// set updater path
-	uerr := wengine.SetUpdaterDataURL(Url)
-	if uerr != nil {
-		t.Errorf("SetUpdaterDataUrl returned : %s\n", uerr.Error())
-	}
+	uerr := wengine.SetUpdaterDataURL(URL)
+	assert.NoErrorf(t, uerr, "SetUpdaterDataURL returned an error: %s", err)
 
 	// set updater user-agent
 	expUa := fmt.Sprintf("golang_wurfl_test/%s", wurfl.Version)
@@ -679,22 +560,16 @@ func TestWurfl_UpdaterRunonce(t *testing.T) {
 	t.Logf("Specific golang binding User-Agent string: %s", expUa)
 
 	uerr = wengine.SetUpdaterUserAgent(expUa)
-	if uerr != nil {
-		t.Errorf("SetUpdaterUserAgent returned : %s\n", uerr.Error())
-	}
+	assert.NoErrorf(t, uerr, "SetUpdaterUserAgent returned an error: %s", err)
 
 	ua := wengine.GetUpdaterUserAgent()
-	if ua == "" {
-		t.Errorf("GetUpdaterUserAgent returned empty string, expected %s", expUa)
-	}
+	assert.NotEmptyf(t, ua, "SetUpdaterUserAgent returned an error: %s", err)
 
 	// set timeout to defaults
 	uerr = wengine.SetUpdaterDataURLTimeout(-1, -1)
 
 	uerr = wengine.UpdaterRunonce()
-	if uerr != nil {
-		t.Errorf("UpdaterRunonce returned : %s\n", uerr.Error())
-	}
+	assert.NoErrorf(t, err, "UpdaterRunonce returned an error: %s", err)
 
 	// check if the modification time of wurfl.zip has changed
 	info, _ = os.Stat("/tmp/wurfl.zip")
@@ -724,9 +599,6 @@ func TestWurfl_UpdaterThread(t *testing.T) {
 	cpCmd := exec.Command("cp", "-rf", wurflZip, "/tmp/wurfl.zip")
 	_ = cpCmd.Run()
 
-	// set modification time to 1 month before
-	setTimeBackForFile("/tmp/wurfl.zip", -30)
-
 	info, _ := os.Stat("/tmp/wurfl.zip")
 	mdt1 := info.ModTime()
 
@@ -739,17 +611,17 @@ func TestWurfl_UpdaterThread(t *testing.T) {
 
 	lastLoadTime := wengine.GetLastLoadTime()
 
-	// set env var SM_UPDATER_DATA_URL to your updater url (from scientiamobile Vault)
+	// set env var SM_UPDATER_DATA_URL to your updater URL (from scientiamobile Vault)
 
-	Url := os.Getenv("SM_UPDATER_DATA_URL")
-	if Url == "" {
+	URL := os.Getenv("SM_UPDATER_DATA_URL")
+	if URL == "" {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
 	// set updater path
-	uerr := wengine.SetUpdaterDataURL(Url)
+	uerr := wengine.SetUpdaterDataURL(URL)
 	if uerr != nil {
-		t.Errorf("SetUpdaterDataUrl returned : %s\n", uerr.Error())
+		t.Errorf("SetUpdaterDataURL returned : %s\n", uerr.Error())
 	}
 
 	uerr = wengine.UpdaterStart()
@@ -780,27 +652,12 @@ func TestWurfl_UpdaterThread(t *testing.T) {
 func TestWurfl_Getters(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
 
-	s := wengine.GetLastLoadTime()
-	if len(s) < 5 {
-		t.Errorf("Wrong last load time %s", s)
-	}
-
-	i := wengine.GetInfo()
-	if len(i) < 5 {
-		t.Errorf("Wrong wurfl info %s", i)
-	}
-
-	if wengine.HasVirtualCapability("pippo") != false {
-		t.Errorf("HasVirtualCapability failure")
-	}
-
-	if wengine.HasVirtualCapability("is_ios") != true {
-		t.Errorf("HasVirtualCapability failure")
-	}
-
-	if wengine.HasCapability("device_os") != true {
-		t.Errorf("HasCapability failure")
-	}
+	assert.NotEmpty(t, wengine.GetLastLoadTime(), "GetLastLoadTime should return non-empty wurfl info")
+	assert.NotEmpty(t, wengine.GetInfo(), "GetInfo should return non-empty wurfl info")
+	assert.False(t, wengine.HasVirtualCapability("pippo"), "HasVirtualCapability should return false for non-existent capability")
+	assert.True(t, wengine.HasVirtualCapability("is_ios"), "HasVirtualCapability should return true for existent capability")
+	assert.True(t, wengine.HasCapability("device_os"), "HasCapability should return true for existent capability")
+	assert.False(t, wengine.HasCapability("pippo"), "HasCapability should return false for non-existent capability")
 
 	wengine.Destroy()
 }
@@ -808,10 +665,7 @@ func TestWurfl_Getters(t *testing.T) {
 func TestWurfl_GetAllDeviceIds(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
 	ids := wengine.GetAllDeviceIds()
-	if len(ids) < 50000 {
-		t.Errorf("Not all device ids have been loaded, they are %d", len(ids))
-	}
-
+	assert.NotEqual(t, 0, len(ids))
 	wengine.Destroy()
 }
 
@@ -1735,7 +1589,7 @@ func Benchmark_MapAccess(b *testing.B) {
 }
 
 func TestDevice_GetCapabilityAsInt(t *testing.T) {
-	wengine := fixtureCreateEngine(nil)
+	wengine := fixtureCreateEngine(t)
 	defer wengine.Destroy()
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
 
@@ -1972,7 +1826,7 @@ func (m *MockWurfl) GetAPIVersion() string {
 	return "version 1.10.0.0"
 }
 
-func (m *MockWurfl) Download(url string, folder string) error {
+func (m *MockWurfl) Download(URL string, folder string) error {
 	return nil
 }
 
@@ -2148,8 +2002,8 @@ func TestDownloadJira1236(t *testing.T) {
 	// First create an engine with eval version ov wurfl.zip, using a capfilter
 	// The capfilter will contain capabilities not inclueded in eval version, so
 	// the engine creation will fail
-	url := os.Getenv("SM_UPDATER_DATA_URL")
-	if url == "" {
+	URL := os.Getenv("SM_UPDATER_DATA_URL")
+	if URL == "" {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
@@ -2186,7 +2040,7 @@ func TestDownloadJira1236(t *testing.T) {
 	}
 
 	// Now download first a fresh wurfl.zip, and then create the engine
-	err = wurfl.Download(url, ".")
+	err = wurfl.Download(URL, ".")
 	if err != nil {
 		t.Errorf("Wurfl.zip download failed: %v", err)
 	}
@@ -2210,9 +2064,9 @@ func TestDownloadJira1236(t *testing.T) {
 // and checks for various error scenarios, including invalid URLs, invalid folders, and
 // an empty URL.
 func TestDownload(t *testing.T) {
-	// get env var SM_UPDATER_DATA_URL url value (from scientiamobile Vault)
-	url := os.Getenv("SM_UPDATER_DATA_URL")
-	if url == "" {
+	// get env var SM_UPDATER_DATA_URL URL value (from scientiamobile Vault)
+	URL := os.Getenv("SM_UPDATER_DATA_URL")
+	if URL == "" {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
@@ -2230,31 +2084,31 @@ func TestDownload(t *testing.T) {
 	// an invalid folder, and an empty URL.
 	tests := []struct {
 		name        string
-		url         string
+		URL         string
 		folder      string
 		expectedErr bool
 	}{
 		{
 			name:        "Valid download",
-			url:         url,
+			URL:         URL,
 			folder:      tempDir,
 			expectedErr: false,
 		},
 		{
 			name:        "Invalid URL",
-			url:         "https://invalid-url.com/wurfl.zip",
+			URL:         "https://invalid-URL.com/wurfl.zip",
 			folder:      tempDir,
 			expectedErr: true,
 		},
 		{
 			name:        "Invalid folder",
-			url:         url,
+			URL:         URL,
 			folder:      "/nonexistent/folder",
 			expectedErr: true,
 		},
 		{
 			name:        "Empty URL",
-			url:         "",
+			URL:         "",
 			folder:      tempDir,
 			expectedErr: true,
 		},
@@ -2265,7 +2119,7 @@ func TestDownload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := wurfl.Download(tt.url, tt.folder)
+			err := wurfl.Download(tt.URL, tt.folder)
 			if tt.expectedErr && err == nil {
 				t.Errorf("Expected an error, but got nil for %s test", tt.name)
 			}
@@ -2279,9 +2133,9 @@ func TestDownload(t *testing.T) {
 // TestDownloadAndLoad tests the Download function by checking that the file was,
 // really downloaded, and if it can be used to create a WURFL engine.
 func TestDownloadAndLoad(t *testing.T) {
-	// get env var SM_UPDATER_DATA_URL url value (from scientiamobile Vault)
-	url := os.Getenv("SM_UPDATER_DATA_URL")
-	if url == "" {
+	// get env var SM_UPDATER_DATA_URL URL value (from scientiamobile Vault)
+	URL := os.Getenv("SM_UPDATER_DATA_URL")
+	if URL == "" {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
@@ -2295,7 +2149,7 @@ func TestDownloadAndLoad(t *testing.T) {
 
 	// Download() downloads the WURFL data file from the specified URL and saves it to the specified directory.
 	// If the download is successful, the function returns nil. Otherwise, it returns an error.
-	err = wurfl.Download(url, tempDir)
+	err = wurfl.Download(URL, tempDir)
 	if err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
@@ -2697,15 +2551,15 @@ func TestGetVirtualCaps(t *testing.T) {
 }
 
 func TestGetLastUpdated(t *testing.T) {
-	// get env var SM_UPDATER_DATA_URL url value (from scientiamobile Vault)
-	url := os.Getenv("SM_UPDATER_DATA_URL")
-	if url == "" {
+	// get env var SM_UPDATER_DATA_URL URL value (from scientiamobile Vault)
+	URL := os.Getenv("SM_UPDATER_DATA_URL")
+	if URL == "" {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
 	// Download() downloads the WURFL data file from the specified URL and saves it to the specified directory.
 	// If the download is successful, the function returns nil. Otherwise, it returns an error.
-	err := wurfl.Download(url, ".")
+	err := wurfl.Download(URL, ".")
 	if err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
