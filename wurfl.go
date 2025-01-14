@@ -192,7 +192,7 @@ type Updater interface {
 }
 
 // Version is the current version of this package.
-const Version = "1.30.1"
+const Version = "1.30.2"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
@@ -218,6 +218,9 @@ func Download(url string, folder string) error {
 // Wurflxml : path to the wurfl.xml/zip file
 // Patches : slice of paths of patches files to load
 // CapFilter : list of capabilities used; allow to init engine without loading all 500+ caps
+//
+//	Note : Capability filtering is discouraged and will be deprecated in future versions
+//
 // DEPRECATED: EngineTarget : As of 1.9.5.0 has no effect anymore
 // CacheProvider : WurflCacheProviderLru
 // CacheExtraConfig : size of single lru cache in the form "100000"
