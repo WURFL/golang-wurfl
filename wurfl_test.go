@@ -15,6 +15,7 @@ import (
 
 	wurfl "github.com/WURFL/golang-wurfl"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func copyFile(src, dst string) error {
@@ -51,7 +52,7 @@ func fixtureCreateEngine(t *testing.T) *wurfl.Wurfl {
 		wengine, err = wurfl.Create("/usr/share/wurfl/wurfl.zip", nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
 	}
 	// cant use assert 'cause this method is also used in benchmarks (no *testing.T)
-	// assert.NoErrorf(t, err, "Create returned an error: %s", err)
+	// require.NoErrorf(t, err, "Create returned an error: %s", err)
 	if err != nil {
 		t.Errorf("Create returned an error: %s", err)
 	}
@@ -83,7 +84,7 @@ func fixtureCreateEngineCachesize(t *testing.T, cachesize string) *wurfl.Wurfl {
 		}
 	}
 	// cant use assert 'cause this method is also used in benchmarks (no *testing.T)
-	// assert.NoErrorf(t, err, "Create returned an error: %s", err)
+	// require.NoErrorf(t, err, "Create returned an error: %s", err)
 	if err != nil {
 		t.Errorf("Create returned an error: %s", err)
 	}
@@ -101,6 +102,8 @@ func TestWurfl_Create(t *testing.T) {
 	ua := "ArtDeviant/3.0.2 CFNetwork/711.3.18 Darwin/14.0.0"
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	fmt.Printf("WURFL API Version: %s\n", wengine.GetAPIVersion())
 
@@ -108,27 +111,16 @@ func TestWurfl_Create(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	deviceid, err := device.GetDeviceID()
-
-	if err == nil {
-		if deviceid != "apple_iphone_ver8_3_subuacfnetwork" {
-			t.Errorf("Lookup mismatch ? >%s< instead of >apple_iphone_ver8_3_subuacfnetwork<", deviceid)
-		}
-	}
-	// uncle firefox
-
-	wengine.Destroy()
+	assert.Equal(t, nil, err)
+	assert.NotEmpty(t, deviceid)
+	assert.Equal(t, "apple_iphone_ver8_3_subuacfnetwork", deviceid)
 }
 
 func TestWurfl_Lookup(t *testing.T) {
 	var wengine *wurfl.Wurfl
 	var err error
-	var err2 error
-	var device *wurfl.Device
-	var newdevice *wurfl.Device
-	var deviceid string
-	var deviceid2 string
 
-	// Capability filtering is discouraged and will be deprecated. Here only for testing purposes
+	// Capability filtering is discouraged and will be deprecated. Here only for test coverage purposes
 	capfilter := []string{
 		"mobile_browser_version",
 		"pointing_method",
@@ -146,33 +138,34 @@ func TestWurfl_Lookup(t *testing.T) {
 		wengine, err = wurfl.Create("/usr/share/wurfl/wurfl.zip", nil, caps, -1, wurfl.WurflCacheProviderLru, "100000")
 	}
 
-	assert.NoErrorf(t, err, "Create returned an error: %s", err)
+	require.NoErrorf(t, err, "Create returned an error: %s", err)
+	defer wengine.Destroy()
 
 	wengine.SetLogPath("api.log")
 
 	ua := "ArtDeviant/3.0.2 CFNetwork/711.3.18 Darwin/14.0.0"
 
-	device, err = wengine.LookupUserAgent(ua)
+	device, err := wengine.LookupUserAgent(ua)
 	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
 
-	deviceid, err = device.GetDeviceID()
-	assert.Equal(t, nil, err)
+	deviceid, err := device.GetDeviceID()
+	assert.NoError(t, err)
 
-	newdevice, err = wengine.LookupDeviceID(deviceid)
-	assert.Equal(t, nil, err)
+	newdevice, err := wengine.LookupDeviceID(deviceid)
+	assert.NoError(t, err)
 
-	deviceid2, err2 = newdevice.GetDeviceID()
-	assert.Equal(t, nil, err2)
+	deviceid2, err2 := newdevice.GetDeviceID()
+	assert.NoError(t, err2)
 
 	if deviceid != deviceid2 {
 		t.Errorf("Error, devices do not match %s, %s", deviceid, deviceid2)
 	}
 
 	_, uaerr := device.GetUserAgent()
-	assert.Equal(t, nil, uaerr)
+	assert.NoError(t, uaerr)
 
 	oua, uaerr := device.GetOriginalUserAgent()
-	assert.Equal(t, nil, uaerr)
+	assert.NoError(t, uaerr)
 
 	if oua != ua {
 		t.Errorf("Error, ua matched >%s< and device original ua >%s< do not match", ua, oua)
@@ -203,28 +196,30 @@ func TestWurfl_Lookup(t *testing.T) {
 
 	device.Destroy()
 	newdevice.Destroy()
-	wengine.Destroy()
 	fi, apilogoserr := os.Stat("api.log")
 	assert.Nil(t, apilogoserr)
 	assert.NotNil(t, fi)
-	// os.Remove("api.log")
+	os.Remove("api.log")
 }
 
 func TestWurfl_GetAllVCaps(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
 	s := wengine.GetAllVCaps()
 	if len(s) < 28 {
 		t.Errorf("Vcaps should be 28 or more, they are %d", len(s))
 	}
 
-	wengine.Destroy()
 }
 
 // Test_GetCapability : various cases on GetCapability / GetVirtualCapability
 func Test_GetCapability(t *testing.T) {
 	assert := assert.New(t)
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
 	assert.Nil(err)
@@ -248,12 +243,13 @@ func Test_GetCapability(t *testing.T) {
 		assert.Equal("Smartphone", device.GetCapability("form_factor"))
 	}
 	device.Destroy()
-	wengine.Destroy()
 }
 
 func Test_LookupRequest(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	// User-Agent
 	UserAgent := "UCWEB/2.0 (Java; U; MIDP-2.0; Nokia203/20.37) U2/1.0.0 UCBrowser/8.7.0.218 U2/1.0.0 Mobile"
@@ -295,13 +291,14 @@ func Test_LookupRequest(t *testing.T) {
 	UserAgentDevice.Destroy()
 	XUCBrowserDeviceDevice.Destroy()
 	reqDevice.Destroy()
-	wengine.Destroy()
 }
 
 // Test_LookupRequestExperimental : test new sec-ch headers
 func Test_LookupRequestExperimental(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	// set experimental headers
 	wengine.SetAttr(wurfl.WurflAttrExtraHeadersExperimental, 1)
@@ -337,7 +334,6 @@ func Test_LookupRequestExperimental(t *testing.T) {
 
 	UserAgentDevice.Destroy()
 	reqDevice.Destroy()
-	wengine.Destroy()
 }
 
 func Test_LookupWithImportantHeaderMap(t *testing.T) {
@@ -346,6 +342,8 @@ func Test_LookupWithImportantHeaderMap(t *testing.T) {
 	var deviceIHM *wurfl.Device
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	// User-Agent
 	UserAgent := "UCWEB/2.0 (Java; U; MIDP-2.0; Nokia203/20.37) U2/1.0.0 UCBrowser/8.7.0.218 U2/1.0.0 Mobile"
@@ -377,7 +375,6 @@ func Test_LookupWithImportantHeaderMap(t *testing.T) {
 
 	deviceLA.Destroy()
 	deviceIHM.Destroy()
-	wengine.Destroy()
 }
 
 func lookUpUserAgent(wengine *wurfl.Wurfl, ua string, capabilities []string) map[string]string {
@@ -388,15 +385,18 @@ func lookUpUserAgent(wengine *wurfl.Wurfl, ua string, capabilities []string) map
 
 func TestJira_INFUZE1053(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 	capabilitiesVector := []string{"max_image_width", "dual_orientation", "density_class", "is_ios"}
 	capabilitiesMap := lookUpUserAgent(wengine, "Callpod Keeper for Android 1.0 (10.0.0/234) Dalvik/2.1.0 (Linux; U; Android 5.0.1; SAMSUNG-SGH-I337 Build/LRX22C)", capabilitiesVector)
 	fmt.Println(capabilitiesMap)
-	wengine.Destroy()
 }
 
 func Test_LookupDeviceIDWithImportantHeaderMap(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	// User-Agent
 	UserAgent := "UCWEB/2.0 (Java; U; MIDP-2.0; Nokia203/20.37) U2/1.0.0 UCBrowser/8.7.0.218 U2/1.0.0 Mobile"
@@ -435,11 +435,12 @@ func Test_LookupDeviceIDWithImportantHeaderMap(t *testing.T) {
 	}
 
 	deviceIHM.Destroy()
-	wengine.Destroy()
 }
 
 func Test_LookupWithImportantHeaderMapCaseInsensitive(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	UserAgent := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 
@@ -471,12 +472,13 @@ func Test_LookupWithImportantHeaderMapCaseInsensitive(t *testing.T) {
 
 	deviceLA.Destroy()
 	deviceIHM.Destroy()
-	wengine.Destroy()
 }
 
 func Test_LookupDeviceIDWithRequest(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	// User-Agent
 	UserAgent := "UCWEB/2.0 (Java; U; MIDP-2.0; Nokia203/20.37) U2/1.0.0 UCBrowser/8.7.0.218 U2/1.0.0 Mobile"
@@ -515,7 +517,6 @@ func Test_LookupDeviceIDWithRequest(t *testing.T) {
 	}
 
 	deviceIHM.Destroy()
-	wengine.Destroy()
 }
 
 func TestWurfl_UpdaterRunonce(t *testing.T) {
@@ -538,7 +539,8 @@ func TestWurfl_UpdaterRunonce(t *testing.T) {
 	mdt1 := info.ModTime()
 
 	wengine, err := wurfl.Create("/tmp/wurfl.zip", nil, nil, wurfl.WurflEngineTargetHighAccuray, wurfl.WurflCacheProviderDoubleLru, "100000")
-	assert.NoErrorf(t, err, "Create returned an error: %s", err)
+	require.NoErrorf(t, err, "Create returned an error: %s", err)
+	defer wengine.Destroy()
 
 	// set env var SM_UPDATER_DATA_URL to your updater URL (from scientiamobile Vault)
 
@@ -579,7 +581,6 @@ func TestWurfl_UpdaterRunonce(t *testing.T) {
 		t.Errorf("/tmp/wurfl.zip not downloaded\n")
 	}
 
-	wengine.Destroy()
 }
 func TestWurfl_UpdaterThread(t *testing.T) {
 	var wengine *wurfl.Wurfl
@@ -603,9 +604,8 @@ func TestWurfl_UpdaterThread(t *testing.T) {
 	mdt1 := info.ModTime()
 
 	wengine, err = wurfl.Create("/tmp/wurfl.zip", nil, nil, wurfl.WurflEngineTargetHighAccuray, wurfl.WurflCacheProviderDoubleLru, "100000")
-	if err != nil {
-		t.Errorf("Create error : %s\n", err.Error())
-	}
+	require.NoErrorf(t, err, "Create returned an error: %s", err)
+	defer wengine.Destroy()
 
 	_ = wengine.SetUpdaterLogPath("/tmp/wurfl-updater-log.txt")
 
@@ -620,14 +620,10 @@ func TestWurfl_UpdaterThread(t *testing.T) {
 
 	// set updater path
 	uerr := wengine.SetUpdaterDataURL(URL)
-	if uerr != nil {
-		t.Errorf("SetUpdaterDataURL returned : %s\n", uerr.Error())
-	}
+	assert.NoErrorf(t, uerr, "SetUpdaterDataURL returned an error: %s", err)
 
 	uerr = wengine.UpdaterStart()
-	if uerr != nil {
-		t.Errorf("UpdaterStart returned : %s\n", uerr.Error())
-	}
+	assert.NoErrorf(t, uerr, "UpdaterStart returned an error: %s", err)
 
 	// wait for updater thread to finish first update
 	time.Sleep(30 * time.Second)
@@ -646,11 +642,12 @@ func TestWurfl_UpdaterThread(t *testing.T) {
 		t.Errorf("Engine not reloaded\n")
 	}
 
-	wengine.Destroy()
 }
 
 func TestWurfl_Getters(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	assert.NotEmpty(t, wengine.GetLastLoadTime(), "GetLastLoadTime should return non-empty wurfl info")
 	assert.NotEmpty(t, wengine.GetInfo(), "GetInfo should return non-empty wurfl info")
@@ -659,14 +656,15 @@ func TestWurfl_Getters(t *testing.T) {
 	assert.True(t, wengine.HasCapability("device_os"), "HasCapability should return true for existent capability")
 	assert.False(t, wengine.HasCapability("pippo"), "HasCapability should return false for non-existent capability")
 
-	wengine.Destroy()
 }
 
 func TestWurfl_GetAllDeviceIds(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
 	ids := wengine.GetAllDeviceIds()
 	assert.NotEqual(t, 0, len(ids))
-	wengine.Destroy()
 }
 
 // Test_SetAttr :
@@ -676,52 +674,29 @@ func Test_SetAttr(t *testing.T) {
 	var attrValue int
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	t.Run("setattr", func(t *testing.T) {
 		err = wengine.SetAttr(wurfl.WurflAttrExtraHeadersExperimental, 10)
-
-		if err != nil {
-			t.Errorf("SetAttr returns error %s", err.Error())
-		}
-
+		assert.NoErrorf(t, err, "SetAttr returned an error: %s", err)
 		attrValue, err = wengine.GetAttr(wurfl.WurflAttrExtraHeadersExperimental)
-
-		if err != nil {
-			t.Errorf("GetAttr returns error %s", err.Error())
-		}
-
-		if attrValue != 10 {
-			t.Errorf("Wrong attr value : %d instead of 10", attrValue)
-		}
+		assert.NoErrorf(t, err, "GetAttr returned an error: %s", err)
+		assert.Equal(t, 10, attrValue)
 	})
 
 	t.Run("setattr negative value", func(t *testing.T) {
 		err = wengine.SetAttr(wurfl.WurflAttrExtraHeadersExperimental, -10)
-
-		if err != nil {
-			t.Errorf("SetAttr returns error %s", err.Error())
-		}
-
+		assert.NoErrorf(t, err, "SetAttr returned an error: %s", err)
 		attrValue, err = wengine.GetAttr(wurfl.WurflAttrExtraHeadersExperimental)
-
-		if err != nil {
-			t.Errorf("GetAttr returns error %s", err.Error())
-		}
-
-		if attrValue != -10 {
-			t.Errorf("Wrong attr value : %d instead of 10", attrValue)
-		}
+		assert.NoErrorf(t, err, "GetAttr returned an error: %s", err)
+		assert.Equal(t, -10, attrValue)
 	})
 
 	t.Run("setattr invalid attr", func(t *testing.T) {
 		err = wengine.SetAttr(44, 10)
-
-		if err == nil {
-			t.Errorf("SetAttr doesn't return error but it should")
-		}
+		assert.NotNil(t, err)
 	})
-
-	wengine.Destroy()
 }
 
 func Test_SetAttr_FallbackCache(t *testing.T) {
@@ -729,17 +704,15 @@ func Test_SetAttr_FallbackCache(t *testing.T) {
 	var attrValue int
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	t.Run("setAttr fallback cache - default", func(t *testing.T) {
 		err = wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
-		if err != nil {
-			t.Errorf("SetAttr returns error %s", err.Error())
-		}
+		assert.NoErrorf(t, err, "SetAttr returned an error: %s", err)
 
 		attrValue, err = wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-		if err != nil {
-			t.Errorf("GetAttr returns error %s", err.Error())
-		}
+		assert.NoErrorf(t, err, "GetAttr returned an error: %s", err)
 
 		if attrValue != wurfl.WurflAttrCapabilityFallbackCacheDefault {
 			t.Errorf("GetAttr returns %d, but %d was expected", attrValue, wurfl.WurflAttrCapabilityFallbackCacheDefault)
@@ -748,14 +721,10 @@ func Test_SetAttr_FallbackCache(t *testing.T) {
 
 	t.Run("setAttr fallback cache - disabled", func(t *testing.T) {
 		err = wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
-		if err != nil {
-			t.Errorf("SetAttr returns error %s", err.Error())
-		}
+		assert.NoErrorf(t, err, "SetAttr returned an error: %s", err)
 
 		attrValue, err = wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-		if err != nil {
-			t.Errorf("GetAttr returns error %s", err.Error())
-		}
+		assert.NoErrorf(t, err, "GetAttr returned an error: %s", err)
 
 		if attrValue != wurfl.WurflAttrCapabilityFallbackCacheDisabled {
 			t.Errorf("GetAttr returns %d, but %d was expected", attrValue, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
@@ -764,14 +733,10 @@ func Test_SetAttr_FallbackCache(t *testing.T) {
 
 	t.Run("setAttr fallback cache - limited", func(t *testing.T) {
 		err = wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheLimited)
-		if err != nil {
-			t.Errorf("SetAttr returns error %s", err.Error())
-		}
+		assert.NoErrorf(t, err, "SetAttr returned an error: %s", err)
 
 		attrValue, err = wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-		if err != nil {
-			t.Errorf("GetAttr returns error %s", err.Error())
-		}
+		assert.NoErrorf(t, err, "GetAttr returned an error: %s", err)
 
 		if attrValue != wurfl.WurflAttrCapabilityFallbackCacheLimited {
 			t.Errorf("GetAttr returns %d, but %d was expected", attrValue, wurfl.WurflAttrCapabilityFallbackCacheLimited)
@@ -780,15 +745,13 @@ func Test_SetAttr_FallbackCache(t *testing.T) {
 		// check that a new set overwrites the old one
 		wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
 		attrValue, err = wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-		if err != nil {
-			t.Errorf("GetAttr returns error %s", err.Error())
-		}
+		assert.NoErrorf(t, err, "GetAttr returned an error: %s", err)
+
 		if attrValue != wurfl.WurflAttrCapabilityFallbackCacheDefault {
 			t.Errorf("GetAttr returns %d, but %d was expected", attrValue, wurfl.WurflAttrCapabilityFallbackCacheLimited)
 		}
 
 	})
-	wengine.Destroy()
 }
 
 // Test_GetAttr :
@@ -798,29 +761,19 @@ func Test_GetAttr(t *testing.T) {
 	var attrValue int
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
 
 	t.Run("getattr", func(t *testing.T) {
 		attrValue, err = wengine.GetAttr(wurfl.WurflAttrExtraHeadersExperimental)
-
-		if err != nil {
-			t.Errorf("GetAttr returns error %s", err.Error())
-		}
-
-		if attrValue != 1 {
-			t.Errorf("Wrong attr value : %d instead of 1", attrValue)
-		}
-
+		assert.NoErrorf(t, err, "GetAttr returned an error: %s", err)
+		assert.Equal(t, 1, attrValue)
 	})
 
 	t.Run("getattr invalid attr", func(t *testing.T) {
 		attrValue, err = wengine.GetAttr(44)
-
-		if err == nil {
-			t.Errorf("GetAttr doesn't return error but it should")
-		}
+		assert.NotNil(t, err)
 	})
-
-	wengine.Destroy()
 }
 
 func TestWurfl_IsUserAgentFrozen(t *testing.T) {
@@ -842,6 +795,7 @@ func TestWurfl_IsUserAgentFrozen(t *testing.T) {
 	}
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	for _, tt := range tests {
@@ -986,6 +940,7 @@ func TestWurfl_GetHeaderQuality(t *testing.T) {
 	}
 
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	for _, tt := range tests {
@@ -1004,655 +959,49 @@ func TestWurfl_GetHeaderQuality(t *testing.T) {
 	}
 }
 
-func Benchmark_GetStaticCap_FallbackCacheDefault_ModelName(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	modelName, _ := device.GetStaticCap("model_name")
-	if modelName == "" {
-		b.Error("capability model_name must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheDefault {
-		b.Error("fallback cache mode should be DEFAULT")
-	}
-
-	defer device.Destroy()
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("model_name")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheDefault_IsSmarttv(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	isSmarttv, _ := device.GetStaticCap("is_smarttv")
-	if isSmarttv == "" {
-		b.Error("capability is_smarttv must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheDefault {
-		b.Error("fallback cache mode should be DEFAULT")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("is_smarttv")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheLimited_ModelName(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheLimited)
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	modelName, _ := device.GetStaticCap("model_name")
-	if modelName == "" {
-		b.Error("capability model_name must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheLimited {
-		b.Error("fallback cache mode should be LIMITED")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("model_name")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheLimited_IsSmarttv(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheLimited)
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	isSmarttv, _ := device.GetStaticCap("is_smarttv")
-	if isSmarttv == "" {
-		b.Error("capability is_smarttv must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheLimited {
-		b.Error("fallback cache mode should be LIMITED")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("is_smarttv")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheDisabled_ModelName(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	modelName, _ := device.GetStaticCap("model_name")
-	if modelName == "" {
-		b.Error("capability model_name must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheDisabled {
-		b.Error("fallback cache mode should be DISABLED")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("model_name")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheDisabled_IsSmarttv(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-	isSmarttv, _ := device.GetStaticCap("is_smarttv")
-	if isSmarttv == "" {
-		b.Error("capability is_smarttv must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheDisabled {
-		b.Error("fallback cache mode should be DISABLED")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("is_smarttv")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheDisabled_MarketingName(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDisabled)
-	device, err := wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-	mktName, _ := device.GetStaticCap("marketing_name")
-	if mktName == "" {
-		b.Error("capability marketing_name must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheDisabled {
-		b.Error("fallback cache mode should be DISABLED")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("marketing_name")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheDefault_MarketingName(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheDefault)
-	device, err := wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-	mktName, _ := device.GetStaticCap("marketing_name")
-	if mktName == "" {
-		b.Error("capability marketing_name must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheDefault {
-		b.Error("fallback cache mode should be DEFAULT")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("marketing_name")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetStaticCap_FallbackCacheLimited_MarketingName(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	wengine.SetAttr(wurfl.WurflAttrCapabilityFallbackCache, wurfl.WurflAttrCapabilityFallbackCacheLimited)
-	device, err := wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-	mktName, _ := device.GetStaticCap("marketing_name")
-	if mktName == "" {
-		b.Error("capability marketing_name must have a value")
-	}
-
-	device.Destroy() // destroy and recreate to have the capability cache clean
-	device, err = wengine.LookupDeviceID("samsung_sm_g990b_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	fallbackMode, err := wengine.GetAttr(wurfl.WurflAttrCapabilityFallbackCache)
-	if err != nil {
-		b.Error("error from GetAttr should be nil")
-	}
-
-	if fallbackMode != wurfl.WurflAttrCapabilityFallbackCacheLimited {
-		b.Error("fallback cache mode should be LIMITED")
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("marketing_name")
-	}
-
-	b.StopTimer()
-}
-
-// Benchmark_GetCapability : test time in single const get_capability
-func Benchmark_GetStaticCap(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetStaticCap("device_os")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetCapabilityAsInt(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetCapabilityAsInt("resolution_width")
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_GetDeviceID(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		b.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		b.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	defer device.Destroy()
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		device.GetDeviceID()
-	}
-
-	b.StopTimer()
-}
-func Benchmark_LookupDeviceID(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		device, _ := wengine.LookupDeviceID("google_pixel_5_ver1")
-		device.Destroy()
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_LookupUserAgent_Cache(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	UserAgent := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		device, _ := wengine.LookupUserAgent(UserAgent)
-		device.Destroy()
-	}
-
-	b.StopTimer()
-}
-
-func Benchmark_LookupUserAgent_NoCache(b *testing.B) {
-	wengine := fixtureCreateEngineCachesize(nil, "")
-	defer wengine.Destroy()
-	UserAgent := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		device, _ := wengine.LookupUserAgent(UserAgent)
-		device.Destroy()
-	}
-
-	b.StopTimer()
-}
-
-// func Benchmark_LookupRequest_Cache
-func Benchmark_LookupRequest_Cache(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	UserAgent := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
-	// create http.Request and lookup using headers
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
-	req.Header.Add("User-Agent", UserAgent)
-	req.Header.Add("Sec-CH-UA", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"")
-	req.Header.Add("Sec-CH-UA-Full-Version", "90.0.4430.91")
-	req.Header.Add("Sec-CH-UA-Platform", "Android")
-	req.Header.Add("Sec-CH-UA-Platform-Version", "11")
-	req.Header.Add("Sec-CH-UA-Model", "SM-M315F")
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		device, _ := wengine.LookupRequest(req)
-		device.Destroy()
-	}
-
-	b.StopTimer()
-}
-
-// func Benchmark_LookupRequest_NoCache
-func Benchmark_LookupRequest_NoCache(b *testing.B) {
-	wengine := fixtureCreateEngineCachesize(nil, "")
-	defer wengine.Destroy()
-	UserAgent := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
-	// create http.Request and lookup using headers
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
-	req.Header.Add("User-Agent", UserAgent)
-	req.Header.Add("Sec-CH-UA", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"")
-	req.Header.Add("Sec-CH-UA-Full-Version", "90.0.4430.91")
-	req.Header.Add("Sec-CH-UA-Platform", "Android")
-	req.Header.Add("Sec-CH-UA-Platform-Version", "11")
-	req.Header.Add("Sec-CH-UA-Model", "SM-M315F")
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		device, _ := wengine.LookupRequest(req)
-		device.Destroy()
-	}
-
-	b.StopTimer()
-}
-
-// GetAllCaps benchmarks
-func Benchmark_GetAllCaps(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		wengine.GetAllCaps()
-	}
-
-	b.StopTimer()
-}
-
-// GetAllVCaps benchmarks
-func Benchmark_GetAllVCaps(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		wengine.GetAllVCaps()
-	}
-
-	b.StopTimer()
-}
-
-// GetAllDeviceIds benchmark
-func Benchmark_GetAllDeviceIds(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-
-		wengine.GetAllDeviceIds()
-	}
-
-	b.StopTimer()
-}
-
-// benchmark CString()/Free() couple compared to accessing a map to get the desired CString
-// to understand whether a caps names CString cache might be interesting or not
-func Benchmark_CStringCFree(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		wurfl.GoStringToCStringAndFree("capability")
-	}
-}
-
-func Benchmark_MapAccess(b *testing.B) {
-	wengine := fixtureCreateEngine(nil)
-	defer wengine.Destroy()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = wengine.GoStringToCStringUsingMap("capability")
-		// if i%10000000 == 0 {
-		// 	fmt.Println(CCap)
-		// }
-	}
-	b.StopTimer()
-}
-
 func TestDevice_GetCapabilityAsInt(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
-	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
+	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
 	defer device.Destroy()
 
 	t.Run("Test GetCapabilityAsInt OK", func(t *testing.T) {
 		cap, err := device.GetCapabilityAsInt("resolution_height")
-		if err != nil {
-			t.Error("error should have been nil, while is: " + err.Error())
-		}
-		if cap <= 0 {
-			t.Error("expected a positive value for resolution_height")
-		}
+		assert.NoErrorf(t, err, "GetCapabilityAsInt error %v", err)
+		assert.GreaterOrEqual(t, cap, 0)
 	})
 
 	t.Run("Test GetCapabilityAsInt calling a non int capability, must return a not nil error", func(t *testing.T) {
 		capname := "brand_name"
 		// from 1.12.7.1 libwurfl returns error when asked for non numeric capabilities (ie: brand_name)
 		_, err := device.GetCapabilityAsInt(capname)
-		if err == nil {
-			t.Error("error should have been not nil for non numeric capabilities calls")
-		}
+		assert.NotNil(t, err)
 	})
 
 	t.Run("Test GetCapabilityAsInt calling a capability using an empty string, must return a not nil error", func(t *testing.T) {
 		// from 1.12.7.1 libwurfl returns error when asked for non numeric
 		// virtual capabilities (ie: form_factor)
 		_, err := device.GetCapabilityAsInt("")
-		if err == nil {
-			t.Error("error should have been not nil for capabilities calls using empty string as name")
-		}
+		assert.NotNil(t, err)
 	})
 }
 
 func TestDevice_GetVirtualCapabilityAsInt(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 	device, err := wengine.LookupDeviceID("google_pixel_5_ver1")
-
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 	defer device.Destroy()
 
 	t.Run("Test GetVirtualCapabilityAsInt OK", func(t *testing.T) {
 		cap, err := device.GetVirtualCapabilityAsInt("pixel_density")
-		if err != nil {
-			t.Error("error should have been nil, while is: " + err.Error())
-		}
-		if cap <= 0 {
-			t.Error("expected a positive value for pixel_density")
-		}
+		assert.NoErrorf(t, err, "GetCapabilityAsInt error %v", err)
+		assert.GreaterOrEqual(t, cap, 0)
 	})
 
 	t.Run("Test GetVirtualCapabilityAsInt calling a non int virtual capability, must return a not nil error", func(t *testing.T) {
@@ -1660,23 +1009,20 @@ func TestDevice_GetVirtualCapabilityAsInt(t *testing.T) {
 		// from 1.12.7.1 libwurfl returns error when asked for non numeric
 		// virtual capabilities (ie: form_factor)
 		_, err := device.GetVirtualCapabilityAsInt(capname)
-		if err == nil {
-			t.Error("error should have been not nil for non numeric virtual capabilities calls")
-		}
+		assert.NotNil(t, err)
 	})
 
 	t.Run("Test GetVirtualCapabilityAsInt calling a virtual capability using an empty string, must return a not nil error", func(t *testing.T) {
 		// from 1.12.7.1 libwurfl returns error when asked for non numeric
 		// virtual capabilities (ie: form_factor)
 		_, err := device.GetVirtualCapabilityAsInt("")
-		if err == nil {
-			t.Error("error should have been not nil for virtual capabilities calls using empty string as name")
-		}
+		assert.NotNil(t, err)
 	})
 }
 
 func TestDevice_GetRootID(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	/**
@@ -1685,133 +1031,62 @@ func TestDevice_GetRootID(t *testing.T) {
 	* in this case "" is expected.
 	**/
 	device, err := wengine.LookupDeviceID("generic_android_ver11_0_subff102_tablet")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	rootId := device.GetRootID()
-	expectedRootId := ""
-	if rootId != expectedRootId {
-		t.Errorf("Expected rootId %s got %s", expectedRootId, rootId)
-	}
+	rootID := device.GetRootID()
+	assert.Equal(t, "", rootID)
 
 	// generic has empty root id
 	device, err = wengine.LookupDeviceID("generic")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	rootId = device.GetRootID()
-	expectedRootId = ""
-	if rootId != expectedRootId {
-		t.Errorf("Expected rootId %s got %s", expectedRootId, rootId)
-	}
+	rootID = device.GetRootID()
+	assert.Equal(t, "", rootID)
 
 	device, err = wengine.LookupDeviceID("natec_smart_tv_dongle_hd221_ver1_subu3k10")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	rootId = device.GetRootID()
-	expectedRootId = "natec_smart_tv_dongle_hd221_ver1"
-	if rootId != expectedRootId {
-		t.Errorf("Expected rootId %s got %s", expectedRootId, rootId)
-	}
+	rootID = device.GetRootID()
+	assert.Equal(t, "natec_smart_tv_dongle_hd221_ver1", rootID)
 
 	//is an actual device root , root is itself
 	device, err = wengine.LookupDeviceID("natec_smart_tv_dongle_hd221_ver1")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	rootId = device.GetRootID()
-	expectedRootId = "natec_smart_tv_dongle_hd221_ver1"
-	if rootId != expectedRootId {
-		t.Errorf("Expected rootId %s got %s", expectedRootId, rootId)
-	}
+	rootID = device.GetRootID()
+	assert.Equal(t, "natec_smart_tv_dongle_hd221_ver1", rootID)
 }
 
 func TestDevice_GetParentID(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	device, err := wengine.LookupDeviceID("generic_android_ver11_0_subff102_tablet")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	parentId := device.GetParentID()
-	expectedParentId := "generic_android_ver11_0_subff101_tablet"
-	if parentId != expectedParentId {
-		t.Errorf("Expected parentId %s got %s", expectedParentId, parentId)
-	}
+	parentID := device.GetParentID()
+	assert.Equal(t, "generic_android_ver11_0_subff101_tablet", parentID)
 
 	// generic has empty parent id
 	device, err = wengine.LookupDeviceID("generic")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	parentId = device.GetParentID()
-	expectedParentId = ""
-	if parentId != expectedParentId {
-		t.Errorf("Expected parentId %s got %s", expectedParentId, parentId)
-	}
+	parentID = device.GetParentID()
+	assert.Equal(t, "", parentID)
 
 	device, err = wengine.LookupDeviceID("natec_smart_tv_dongle_hd221_ver1_subu3k10")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	parentId = device.GetParentID()
-	expectedParentId = "natec_smart_tv_dongle_hd221_ver1"
-	if parentId != expectedParentId {
-		t.Errorf("Expected parentId %s got %s", expectedParentId, parentId)
-	}
+	parentID = device.GetParentID()
+	assert.Equal(t, "natec_smart_tv_dongle_hd221_ver1", parentID)
 
 	//is an actual device root , but has a parent
 	device, err = wengine.LookupDeviceID("natec_smart_tv_dongle_hd221_ver1")
+	require.NoErrorf(t, err, "LookupDeviceID error %v", err)
 
-	if err != nil {
-		t.Error("error from LookupDeviceID should be the nil")
-	}
-	if device == nil {
-		t.Error("device from LookupDeviceID should be the NOT nil")
-	}
-
-	parentId = device.GetParentID()
-	expectedParentId = "generic_android_ver4_2"
-	if parentId != expectedParentId {
-		t.Errorf("Expected parentId %s got %s", expectedParentId, parentId)
-	}
+	parentID = device.GetParentID()
+	assert.Equal(t, "generic_android_ver4_2", parentID)
 }
 
 // The Wurfl handler can be mocked implementing the WurflHandler interface
@@ -1930,39 +1205,24 @@ func TestWurfl_Mock(t *testing.T) {
 	s := &ExampleService{WurflHandler: m}
 
 	t.Run("Test GetAllCaps mock", func(t *testing.T) {
-		expected := 2
 		caps := s.GetAllCaps()
-		if len(caps) != expected {
-			t.Errorf("Expected %q, got %q", expected, caps)
-		}
+		assert.Equal(t, 2, len(caps))
 	})
 
 	t.Run("Test HasCapability mock", func(t *testing.T) {
-		expected := true
 		hasCap := s.HasCapability("brand_name")
-		if hasCap != expected {
-			t.Errorf("Expected %t, got %t", expected, hasCap)
-		}
+		assert.Equal(t, true, hasCap)
 
-		expected = false
 		hasCap = s.HasCapability("not_exists")
-		if hasCap != expected {
-			t.Errorf("Expected %t, got %t", expected, hasCap)
-		}
+		assert.Equal(t, false, hasCap)
 	})
 
 	t.Run("Test HasVirtualCapability mock", func(t *testing.T) {
-		expected := true
 		hasVCap := s.HasVirtualCapability("is_ios")
-		if hasVCap != expected {
-			t.Errorf("Expected %t, got %t", expected, hasVCap)
-		}
+		assert.Equal(t, true, hasVCap)
 
-		expected = false
 		hasVCap = s.HasVirtualCapability("not_exists")
-		if hasVCap != expected {
-			t.Errorf("Expected %t, got %t", expected, hasVCap)
-		}
+		assert.Equal(t, false, hasVCap)
 	})
 }
 func TestCompareVersions(t *testing.T) {
@@ -2041,22 +1301,14 @@ func TestDownloadJira1236(t *testing.T) {
 
 	// Now download first a fresh wurfl.zip, and then create the engine
 	err = wurfl.Download(URL, ".")
-	if err != nil {
-		t.Errorf("Wurfl.zip download failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	_, err = wurfl.Create("wurfl.zip", nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
-
-	if err != nil {
-		t.Errorf("Wurfl engine creation failed: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	// Remove local wurfl.zip
 	err = os.Remove("wurfl.zip")
-
-	if err != nil {
-		t.Errorf("Remove wurfl.zip failure: %v\n", err)
-	}
+	assert.NoError(t, err)
 }
 
 // TestDownload tests the Download function of the wurfl package. It creates a temporary
@@ -2072,9 +1324,7 @@ func TestDownload(t *testing.T) {
 
 	// create a temporary directory for the test, removed after the test
 	tempDir, err := os.MkdirTemp("", "wurfl_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
+	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
 	// tests is a slice of test cases for the Download function.
@@ -2142,23 +1392,17 @@ func TestDownloadAndLoad(t *testing.T) {
 	// Creates a temporary directory for the WURFL integration test and defers its removal.
 	// The temporary directory is used to store the downloaded WURFL data file during the test.
 	tempDir, err := os.MkdirTemp("", "wurfl_integration_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
+	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
 	// Download() downloads the WURFL data file from the specified URL and saves it to the specified directory.
 	// If the download is successful, the function returns nil. Otherwise, it returns an error.
 	err = wurfl.Download(URL, tempDir)
-	if err != nil {
-		t.Fatalf("Download failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check if the file was downloaded
 	files, err := os.ReadDir(tempDir)
-	if err != nil {
-		t.Fatalf("Failed to read temp directory: %v", err)
-	}
+	require.NoError(t, err)
 
 	if len(files) == 0 {
 		t.Errorf("No files downloaded")
@@ -2169,9 +1413,7 @@ func TestDownloadAndLoad(t *testing.T) {
 			wurflfile := tempDir + "/" + file.Name()
 			// Try to create and load an engine with the freshly downloaded file
 			_, err = wurfl.Create(wurflfile, nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
-			if err != nil {
-				t.Errorf("Create error : %s\n", err.Error())
-			}
+			require.NoError(t, err)
 			return
 		}
 	}
@@ -2182,13 +1424,11 @@ func TestGetStaticCap(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
 
 	wengine := fixtureCreateEngine(t)
-
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -2246,13 +1486,11 @@ func TestGetStaticCapConcurrency(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
 
 	wengine := fixtureCreateEngine(t)
-
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	concurrency := 100
 	var wg sync.WaitGroup
@@ -2271,39 +1509,15 @@ func TestGetStaticCapConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-func BenchmarkGetStaticCap(b *testing.B) {
-	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
-
-	wengine := fixtureCreateEngine(nil)
-
-	defer wengine.Destroy()
-
-	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := device.GetStaticCap("mobile_browser_version")
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-	b.StopTimer()
-}
-
 func TestGetVirtualCap(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
 
 	wengine := fixtureCreateEngine(t)
-
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -2349,13 +1563,11 @@ func TestGetVirtualCapConcurrency(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
 
 	wengine := fixtureCreateEngine(t)
-
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	concurrency := 100
 	var wg sync.WaitGroup
@@ -2365,55 +1577,28 @@ func TestGetVirtualCapConcurrency(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			_, err := device.GetVirtualCap("is_smartphone")
-			if err != nil {
-				t.Errorf("Concurrent GetVirtualCap() failed: %v", err)
-			}
+			require.NoError(t, err)
 		}()
 	}
 
 	wg.Wait()
 }
 
-func BenchmarkGetVirtualCap(b *testing.B) {
-	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
-
-	wengine := fixtureCreateEngine(nil)
-
-	defer wengine.Destroy()
-
-	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := device.GetVirtualCap("advertised_device_os")
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-	b.StopTimer()
-}
-
 func TestGetStaticCaps(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
 
 	wengine := fixtureCreateEngine(t)
-
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	t.Run("ValidCapabilities", func(t *testing.T) {
 		caps := []string{"mobile_browser", "is_tablet", "pointing_method"}
 		result, err := device.GetStaticCaps(caps)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
+
 		if len(result) != len(caps) {
 			t.Errorf("Expected %d capabilities, got %d", len(caps), len(result))
 		}
@@ -2426,9 +1611,7 @@ func TestGetStaticCaps(t *testing.T) {
 
 	t.Run("EmptyMap", func(t *testing.T) {
 		result, err := device.GetStaticCaps([]string{})
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
 		if len(result) != 0 {
 			t.Errorf("Expected empty result, got %d capabilities", len(result))
 		}
@@ -2437,23 +1620,16 @@ func TestGetStaticCaps(t *testing.T) {
 	t.Run("NonExistentCapability", func(t *testing.T) {
 		caps := []string{"non_existent_cap"}
 		result, err := device.GetStaticCaps(caps)
-		if err == nil {
-			t.Error("Expected error for non-existent capability, got nil")
-		}
-		if result == nil {
-			t.Errorf("Expected empty map for non-existent capability, got nil")
-		}
+		assert.NotNil(t, err)    // error returned
+		assert.NotNil(t, result) // empty map returned
 	})
 
 	t.Run("MixedCapabilities", func(t *testing.T) {
 		caps := []string{"mobile_browser", "non_existent_cap", "is_tablet"}
 		result, err := device.GetStaticCaps(caps)
-		if err == nil {
-			t.Error("Expected error for mixed capabilities, got nil")
-		}
-		if result == nil {
-			t.Errorf("Expected valid map for mixed capabilities, got nil")
-		}
+		assert.NotNil(t, err)
+		assert.NotNilf(t, result, "Expected valid map for mixed capabilities, got nil")
+
 		// We expect wrong capability to be skipped
 		if len(result) != len(caps)-1 {
 			t.Errorf("Expected %d capabilities, got %d", len(caps)-1, len(result))
@@ -2463,9 +1639,7 @@ func TestGetStaticCaps(t *testing.T) {
 	t.Run("DuplicateCaps", func(t *testing.T) {
 		caps := []string{"mobile_browser", "mobile_browser", "is_tablet"}
 		result, err := device.GetStaticCaps(caps)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
 		// We expect one of the duplicate capabilities to be removed
 		if len(result) != len(caps)-1 {
 			t.Errorf("Expected %d capabilities, got %d", len(caps)-1, len(result))
@@ -2477,20 +1651,16 @@ func TestGetVirtualCaps(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1"
 
 	wengine := fixtureCreateEngine(t)
-
+	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
 	device, err := wengine.LookupUserAgent(ua)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	t.Run("ValidCaps", func(t *testing.T) {
+	t.Run("ValidVCaps", func(t *testing.T) {
 		caps := []string{"is_smartphone", "advertised_device_os", "pixel_density"}
 		result, err := device.GetVirtualCaps(caps)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
 		if len(result) != len(caps) {
 			t.Errorf("Expected %d capabilities, got %d", len(caps), len(result))
 		}
@@ -2503,34 +1673,24 @@ func TestGetVirtualCaps(t *testing.T) {
 
 	t.Run("EmptyMap", func(t *testing.T) {
 		result, err := device.GetVirtualCaps([]string{})
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
 		if len(result) != 0 {
 			t.Errorf("Expected empty result, got %d capabilities", len(result))
 		}
 	})
 
-	t.Run("NonExistentCap", func(t *testing.T) {
-		caps := []string{"non_existent_cap"}
+	t.Run("NonExistentVCap", func(t *testing.T) {
+		caps := []string{"non_existent_vcap"}
 		result, err := device.GetVirtualCaps(caps)
-		if err == nil {
-			t.Error("Expected error for non-existent capability, got nil")
-		}
-		if result == nil {
-			t.Errorf("Expected empty map for non-existent capability, got nil")
-		}
+		assert.NotNil(t, err)    // error returned
+		assert.NotNil(t, result) // empty map returned
 	})
 
-	t.Run("MixedCaps", func(t *testing.T) {
+	t.Run("MixedVCaps", func(t *testing.T) {
 		caps := []string{"is_smartphone", "non_existent_cap", "pixel_density"}
 		result, err := device.GetVirtualCaps(caps)
-		if err == nil {
-			t.Error("Expected error for mixed valid and non-existent capabilities, got nil")
-		}
-		if result == nil {
-			t.Errorf("Expected empty map for non-existent capability, got nil")
-		}
+		assert.NotNil(t, err)
+		assert.NotNilf(t, result, "Expected valid map for mixed capabilities, got nil")
 		// We expect wrong virtual capability to be skipped
 		if len(result) != len(caps)-1 {
 			t.Errorf("Expected %d capabilities, got %d", len(caps)-1, len(result))
@@ -2540,9 +1700,7 @@ func TestGetVirtualCaps(t *testing.T) {
 	t.Run("DuplicateCaps", func(t *testing.T) {
 		caps := []string{"is_smartphone", "advertised_device_os", "is_smartphone"}
 		result, err := device.GetVirtualCaps(caps)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
 		// We expect one of the duplicate capabilities to be removed
 		if len(result) != len(caps)-1 {
 			t.Errorf("Expected %d capabilities, got %d", len(caps)-1, len(result))
@@ -2560,14 +1718,10 @@ func TestGetLastUpdated(t *testing.T) {
 	// Download() downloads the WURFL data file from the specified URL and saves it to the specified directory.
 	// If the download is successful, the function returns nil. Otherwise, it returns an error.
 	err := wurfl.Download(URL, ".")
-	if err != nil {
-		t.Fatalf("Download failed: %v", err)
-	}
+	assert.NoError(t, err)
 
 	wengine, err := wurfl.Create("./wurfl.zip", nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer wengine.Destroy()
 
 	lastUpdated := wengine.GetLastUpdated()
@@ -2579,7 +1733,5 @@ func TestGetLastUpdated(t *testing.T) {
 
 	// Remove the local wurfl.zip file
 	err = os.Remove("./wurfl.zip")
-	if err != nil {
-		t.Fatalf("Failed to remove wurfl.zip: %v", err)
-	}
+	assert.NoError(t, err)
 }
