@@ -30,6 +30,13 @@ func main() {
 
 	fmt.Println("Engine loaded, version : ", wengine.GetAPIVersion(), "wurfl info ", wengine.GetInfo())
 
+	// start the updater : will keep the wurfl.zip file updated to the last version
+	// if err := wengine.SetUpdaterDataURL(wurflUpdaterURL); err != nil {
+	// 	fmt.Printf("Error setting updater data URL: %v\n", err)
+	// }
+	// wengine.SetUpdaterDataFrequency(wurfl.WurflUpdaterFrequencyDaily)
+	// wengine.UpdaterStart()
+
 	c := wengine.GetAllCaps()
 	fmt.Println("Capabilities available = ", c)
 
