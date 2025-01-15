@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	// Replace this with your own WURFL updater URL
+	// Replace this with your own WURFL Snapshot URL
 	wurflUpdaterURL := "https://data.scientiamobile.com/xxxxx/wurfl.zip"
 
 	fmt.Println("Downloading WURFL file ...")
