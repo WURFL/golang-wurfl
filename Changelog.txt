@@ -1,4 +1,7 @@
-1.30.2 - 
+1.30.3 - Jan 15, 2025
+- examples, better wording for godoc
+
+1.30.2 - Jan 14, 2025
 - removing deprecated GetCapabilities() and GetVirtualCapabilities from tests
 - more idiomatic test code (use asserts)
 - removing unnecessary or old tests

@@ -192,7 +192,7 @@ type Updater interface {
 }
 
 // Version is the current version of this package.
-const Version = "1.30.2"
+const Version = "1.30.3"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
@@ -214,7 +214,7 @@ func Download(url string, folder string) error {
 	return nil
 }
 
-// Create the wurfl engine.Parameters :
+// Create the wurfl engine. Parameters :
 // Wurflxml : path to the wurfl.xml/zip file
 // Patches : slice of paths of patches files to load
 // CapFilter : list of capabilities used; allow to init engine without loading all 500+ caps
@@ -325,7 +325,7 @@ func (w *Wurfl) Destroy() {
 	}
 }
 
-// SetAttr : we engine attributes
+// SetAttr : set engine attributes
 func (w *Wurfl) SetAttr(attr int, value int) error {
 	cattr := C.wurfl_attr(attr)
 	cvalue := C.int(value)
@@ -365,7 +365,7 @@ func (w *Wurfl) SetAttr(attr int, value int) error {
 	return nil
 }
 
-// GetAttr : get we engine attributes
+// GetAttr : get engine attributes
 func (w *Wurfl) GetAttr(attr int) (int, error) {
 	cattr := C.wurfl_attr(attr)
 	var cvalue C.int
@@ -389,10 +389,8 @@ func (w *Wurfl) SetLogPath(LogFile string) error {
 	return nil
 }
 
-// SetUpdaterDataURL - set your scientiamobile vault https updater url
+// SetUpdaterDataURL - set your scientiamobile WURFL Snapshot URL
 func (w *Wurfl) SetUpdaterDataURL(DataURL string) error {
-	//     wurfl_error wurfl_updater_set_data_url(wurfl_handle hwurfl, const char* data_url);
-	//     wurfl_error wurfl_updater_set_useragent(wurfl_handle hwurfl, const char *useragent);
 
 	apiVersion := w.GetAPIVersion()
 	// we set useragent only if API version is >= 1.13.0.0 otherwise it will overwrite the libwurfl one
@@ -419,7 +417,7 @@ func (w *Wurfl) SetUpdaterDataURL(DataURL string) error {
 	return nil
 }
 
-// SetUpdaterUserAgent - set your scientiamobile vault https updater url
+// SetUpdaterUserAgent - set the UserAgent used in calling the WURFL Snapshot server
 func (w *Wurfl) SetUpdaterUserAgent(userAgent string) error {
 	cdata := C.CString(userAgent)
 	ret := C.wurfl_updater_set_useragent(w.Wurfl, cdata)
@@ -431,14 +429,14 @@ func (w *Wurfl) SetUpdaterUserAgent(userAgent string) error {
 	return nil
 }
 
-// GetUpdaterUserAgent - gets your scientiamobile vault https updater url
+// GetUpdaterUserAgent - gets the UserAgent used in calling the WURFL Snapshot server
 func (w *Wurfl) GetUpdaterUserAgent() string {
 	ua := C.wurfl_updater_get_useragent(w.Wurfl)
 	uaValue := C.GoString(ua)
 	return uaValue
 }
 
-// SetUpdaterDataFrequency - set interval of update checks
+// SetUpdaterDataFrequency - set frequency of update checks
 func (w *Wurfl) SetUpdaterDataFrequency(Frequency int) error {
 	//     LIBWURFLAPI wurfl_error wurfl_updater_set_data_frequency(wurfl_handle hwurfl, wurfl_updater_frequency freq);
 	cfreq := C.wurfl_updater_frequency(Frequency)
@@ -475,7 +473,7 @@ func (w *Wurfl) SetUpdaterLogPath(LogFile string) error {
 	return nil
 }
 
-// UpdaterRunonce - start updater process once and wait for termination
+// UpdaterRunonce - Update the wurfl if needed and terminate
 func (w *Wurfl) UpdaterRunonce() error {
 	//     LIBWURFLAPI wurfl_error wurfl_updater_runonce(wurfl_handle hwurfl);
 	if C.wurfl_updater_runonce(w.Wurfl) != C.WURFL_OK {
@@ -485,7 +483,8 @@ func (w *Wurfl) UpdaterRunonce() error {
 	return nil
 }
 
-// UpdaterStart - start the updater thread
+// UpdaterStart - Start the updater, a thread that performs periodic check and update of the wurfl.zip file
+// when a new wurfl.zip is available it is downloaded and engine is switched to use the new wurfl.zip file immediately
 func (w *Wurfl) UpdaterStart() error {
 	//     LIBWURFLAPI wurfl_error wurfl_updater_start(wurfl_handle hwurfl);
 	if C.wurfl_updater_start(w.Wurfl) != C.WURFL_OK {
@@ -495,7 +494,7 @@ func (w *Wurfl) UpdaterStart() error {
 	return nil
 }
 
-// UpdaterStop - stop the updater thread
+// UpdaterStop - stop the updater
 func (w *Wurfl) UpdaterStop() error {
 	if C.wurfl_updater_stop(w.Wurfl) != C.WURFL_OK {
 		err := C.wurfl_get_error_message(w.Wurfl)
@@ -526,7 +525,7 @@ func (w *Wurfl) GetAllVCaps() []string {
 	return result
 }
 
-// GetAllCaps return all capabilities names
+// GetAllCaps return all static capabilities names
 func (w *Wurfl) GetAllCaps() []string {
 	var result []string
 
@@ -558,13 +557,13 @@ func (w *Wurfl) GetLastUpdated() string {
 	return C.GoString(C.wurfl_get_last_updated(w.Wurfl))
 }
 
-// GetEngineTarget - Returns a string representing the currently set WURFL Engine Target. Possible values are "HIGH_ACCURACY", "HIGH_PERFORMANCE" or "INVALID".
+// GetEngineTarget - Returns a string representing the currently set WURFL Engine Target.
 // DEPRECATED: will always return default value
 func (w *Wurfl) GetEngineTarget() string {
 	return "DEFAULT"
 }
 
-// SetUserAgentPriority - Sets which UA wurfl is using (plain or sideloaded)
+// SetUserAgentPriority - Sets which UA wurfl is using
 // DEPRECATED. Since 1.9.5.0 has no effect anymore
 func (w *Wurfl) SetUserAgentPriority(prio int) {
 	return
@@ -576,7 +575,7 @@ func (w *Wurfl) GetUserAgentPriority() string {
 	return "OVERRIDE SIDELOADED BROWSER USERAGENT"
 }
 
-// HasCapability - HasVirtualCapability return true is the vcap exists
+// HasCapability - returns true if the static capability exists in wurfl.zip
 func (w *Wurfl) HasCapability(cap string) bool {
 	ccap := C.CString(cap)
 	ret := C.wurfl_has_capability(w.Wurfl, ccap)
@@ -587,7 +586,7 @@ func (w *Wurfl) HasCapability(cap string) bool {
 	return true
 }
 
-// HasVirtualCapability - HasVirtualCapability return true is the vcap exists
+// HasVirtualCapability - returns true if the virtual cap is available
 func (w *Wurfl) HasVirtualCapability(vcap string) bool {
 	cvcap := C.CString(vcap)
 	ret := C.wurfl_has_virtual_capability(w.Wurfl, cvcap)
@@ -636,7 +635,7 @@ func (w *Wurfl) LookupUserAgent(ua string) (*Device, error) {
 	return d, nil
 }
 
-// LookupRequest : Lookup Request and return Device handle
+// LookupRequest : Lookup using Request headers and return Device handle
 func (w *Wurfl) LookupRequest(r *http.Request) (*Device, error) {
 
 	d := &Device{}
@@ -721,7 +720,7 @@ func (w *Wurfl) LookupDeviceIDWithRequest(DeviceID string, r *http.Request) (*De
 }
 
 // LookupWithImportantHeaderMap : Lookup using header values found in IHMap.
-// IHMap must be filled with Wurfl.ImportantHeaderNames values
+// IHMap must be filled with Wurfl.ImportantHeaderNames and values
 func (w *Wurfl) LookupWithImportantHeaderMap(IHMap map[string]string) (*Device, error) {
 	d := &Device{}
 	// copy wurfl handle into device handle for error handling
@@ -760,7 +759,7 @@ func (w *Wurfl) LookupWithImportantHeaderMap(IHMap map[string]string) (*Device, 
 }
 
 // LookupDeviceIDWithImportantHeaderMap : Lookup deviceID using header values found in IHMap.
-// IHMap must be filled with Wurfl.ImportantHeaderNames values
+// IHMap must be filled with Wurfl.ImportantHeaderNames and values
 func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[string]string) (*Device, error) {
 	d := &Device{}
 	// copy wurfl handle into device handle for error handling
@@ -804,7 +803,7 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	return d, nil
 }
 
-// IsUserAgentFrozen : returns true if an useragent is frozen
+// IsUserAgentFrozen : returns true if a UserAgent is frozen
 func (w *Wurfl) IsUserAgentFrozen(ua string) bool {
 	wua := C.CString(ua)
 	ret := C.wurfl_is_ua_frozen(w.Wurfl, wua)
@@ -815,7 +814,7 @@ func (w *Wurfl) IsUserAgentFrozen(ua string) bool {
 	return true
 }
 
-// GetHeaderQuality return the header quality value of HTTP request headers
+// GetHeaderQuality returns an indicator of how many sec-ch-ua headers are present in the request
 func (w *Wurfl) GetHeaderQuality(r *http.Request) (HeaderQuality, error) {
 	// create important headers object to pass to lookup
 	cih := C.wurfl_important_header_create(w.Wurfl)
@@ -925,7 +924,7 @@ func (d *Device) GetCapability(cap string) string {
 	return capvalue
 }
 
-// GetStaticCap Get a single cap using new C.wurfl_device_get_static_cap()
+// GetStaticCap Get a single static cap using new C.wurfl_device_get_static_cap()
 // that returns error
 func (d *Device) GetStaticCap(cap string) (string, error) {
 	ccap, found := d.capsCStringcache[cap]
@@ -945,8 +944,8 @@ func (d *Device) GetStaticCap(cap string) (string, error) {
 	return capvalue, nil
 }
 
-// GetCapabilityAsInt gets a single capability value that has a int type
-// It returns an error if the requested capability is not a numeric one (ie: brand_name)
+// GetCapabilityAsInt gets a single static capability value that has a int type
+// It returns an error if the requested static capability is not a numeric one (ie: brand_name)
 func (d *Device) GetCapabilityAsInt(cap string) (int, error) {
 	ccap, found := d.capsCStringcache[cap]
 	if !found {
@@ -1146,7 +1145,7 @@ func (d *Device) Destroy() {
 	}
 }
 
-// GetAllDeviceIds returns a slice containing all WURFL device IDs
+// GetAllDeviceIds returns a slice containing all wurfl_id present in wurfl.zip
 func (w *Wurfl) GetAllDeviceIds() []string {
 	var result = make([]string, 0, 95000)
 	// TODO : when libwurfl will have wurfl_enum_len(wurfl_enum_handle handle)
