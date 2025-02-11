@@ -1346,7 +1346,7 @@ func TestDownload(t *testing.T) {
 		},
 		{
 			name:        "Invalid URL",
-			URL:         "https://invalid-URL.com/wurfl.zip",
+			URL:         "htt://invalid-URL.com/wurfl.zip",
 			folder:      tempDir,
 			expectedErr: true,
 		},
