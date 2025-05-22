@@ -4,6 +4,7 @@
 package wurfl_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -98,7 +99,33 @@ func TestWurfl_WurflGetAPIVersion(t *testing.T) {
 	fmt.Printf("WURFL API Version: %s\n", ver)
 }
 
-func TestWurfl_Create(t *testing.T) {
+// Test create engine possible error codes
+func TestWurfl_CreateEngine(t *testing.T) {
+
+	// create engine with error for wurfl.zip not found
+	_, err := wurfl.Create("/nodir/wurfl.zip", nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
+	assert.ErrorIs(t, err, wurfl.ErrFileNotFound)
+
+	// create engine with error for wurfl.zip not found
+	_, err = wurfl.Create("/etc/passwd", nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
+	assert.ErrorIs(t, err, wurfl.ErrInputOutputFailure)
+
+	// another way for checking for specific error types
+	if errors.Is(err, wurfl.ErrInputOutputFailure) {
+		fmt.Printf("Checking that errors.Is() works	: %s\n", err)
+	}
+
+	switch {
+	case errors.Is(err, wurfl.ErrFileNotFound):
+		fmt.Printf("Checking that errors.Is() works	: %s\n", err)
+	case errors.Is(err, wurfl.ErrInputOutputFailure):
+		fmt.Printf("Checking that errors.Is() works	: %s\n", err)
+	default:
+		fmt.Printf("Checking that errors.Is() works	: %s\n", err)
+	}
+}
+
+func TestWurfl_FixtureCreateEngine(t *testing.T) {
 	ua := "ArtDeviant/3.0.2 CFNetwork/711.3.18 Darwin/14.0.0"
 
 	wengine := fixtureCreateEngine(t)
@@ -979,7 +1006,8 @@ func TestDevice_GetCapabilityAsInt(t *testing.T) {
 		capname := "brand_name"
 		// from 1.12.7.1 libwurfl returns error when asked for non numeric capabilities (ie: brand_name)
 		_, err := device.GetCapabilityAsInt(capname)
-		assert.Errorf(t, err, "GetCapabilityAsInt should return an error for non int capability %s", capname)
+		// WURFL_ERROR_INVALID_CAPABILITY_VALUE
+		assert.ErrorIs(t, err, wurfl.ErrInvalidCapabilityValue)
 	})
 
 	t.Run("Test GetCapabilityAsInt calling a capability using an empty string, must return a not nil error", func(t *testing.T) {
@@ -1295,9 +1323,7 @@ func TestDownloadJira1236(t *testing.T) {
 	// Create the engine with eval version, the capfilter makes the engine creation fail
 	_, err = wurfl.Create("wurfl.zip", nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
 
-	if err == nil || err.Error() != "specified capability is missing" {
-		t.Errorf("Create ok, it should fail\n")
-	}
+	assert.ErrorIs(t, err, wurfl.ErrCantLoadCapabilityNotFound)
 
 	// Now download first a fresh wurfl.zip, and then create the engine
 	err = wurfl.Download(URL, ".")
