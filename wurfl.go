@@ -191,7 +191,7 @@ type Updater interface {
 }
 
 // Version is the current version of this package.
-const Version = "1.30.4"
+const Version = "1.31.0"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
