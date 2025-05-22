@@ -979,7 +979,7 @@ func TestDevice_GetCapabilityAsInt(t *testing.T) {
 		capname := "brand_name"
 		// from 1.12.7.1 libwurfl returns error when asked for non numeric capabilities (ie: brand_name)
 		_, err := device.GetCapabilityAsInt(capname)
-		assert.NotNil(t, err)
+		assert.Errorf(t, err, "GetCapabilityAsInt should return an error for non int capability %s", capname)
 	})
 
 	t.Run("Test GetCapabilityAsInt calling a capability using an empty string, must return a not nil error", func(t *testing.T) {

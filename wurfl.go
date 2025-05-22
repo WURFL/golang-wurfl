@@ -950,7 +950,7 @@ func (d *Device) GetCapabilityAsInt(cap string) (int, error) {
 	ccapvalue := C.wurfl_device_get_static_cap_as_int(d.Device, ccap, &cErr)
 	// libwurfl currently returns zero if any error occurs
 	if cErr != C.WURFL_OK {
-		return 0, checkHandleError(d.Wurfl)
+		return 0, cErrorToGoError(cErr)
 	}
 
 	return int(ccapvalue), nil
