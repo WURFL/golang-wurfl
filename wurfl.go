@@ -1037,7 +1037,8 @@ func (d *Device) GetVirtualCap(vcap string) (string, error) {
 	retCode := C.wurfl_error(0)
 	cvcapvalue := C.wurfl_device_get_virtual_cap(d.Device, cvcap, &retCode)
 	if retCode != C.WURFL_OK {
-		return 0, cErrorToGoError(cErr)
+		return "", checkHandleError(d.Wurfl)
+
 	}
 	vcapvalue := C.GoString(cvcapvalue)
 
@@ -1058,7 +1059,7 @@ func (d *Device) GetVirtualCapabilityAsInt(vcap string) (int, error) {
 	ccapvalue := C.wurfl_device_get_virtual_cap_as_int(d.Device, cvcap, &cErr)
 	// libwurfl currently returns zero if any error occurs
 	if cErr != C.WURFL_OK {
-		return 0, checkHandleError(d.Wurfl)
+		return 0, cErrorToGoError(cErr)
 	}
 
 	return int(ccapvalue), nil
