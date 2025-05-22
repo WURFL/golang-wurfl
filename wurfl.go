@@ -1037,7 +1037,7 @@ func (d *Device) GetVirtualCap(vcap string) (string, error) {
 	retCode := C.wurfl_error(0)
 	cvcapvalue := C.wurfl_device_get_virtual_cap(d.Device, cvcap, &retCode)
 	if retCode != C.WURFL_OK {
-		return "", checkHandleError(d.Wurfl)
+		return 0, cErrorToGoError(cErr)
 	}
 	vcapvalue := C.GoString(cvcapvalue)
 
