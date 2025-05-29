@@ -1,7 +1,8 @@
-1.31.0 - May 2025
+1.31.0 - June 2025
 
 - complete new error managment that will allow to use errors.Is() for
-checking against specific error types.
+checking against specific error types. Requires libwurfl 1.13.4.0 for
+all tests to correctly pass.
 
 1.30.4 - Feb 18, 2025
 - Fixed a test
