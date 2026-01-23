@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1732,6 +1733,327 @@ func TestGetVirtualCaps(t *testing.T) {
 			t.Errorf("Expected %d capabilities, got %d", len(caps)-1, len(result))
 		}
 	})
+}
+
+// The Device handler can be mocked implementing the DeviceHandler interface.
+// Below is a simple mock that does not require external dependencies.
+type MockDevice struct {
+	staticCaps  map[string]string
+	virtualCaps map[string]string
+}
+
+func (m *MockDevice) GetMatchType() int {
+	return 0
+}
+func (m *MockDevice) GetVirtualCapabilities(caps []string) map[string]string {
+	return m.virtualCaps
+}
+func (m *MockDevice) GetVirtualCaps(caps []string) (map[string]string, error) {
+	return m.virtualCaps, nil
+}
+func (m *MockDevice) GetVirtualCapability(vcap string) string {
+	return m.virtualCaps[vcap]
+}
+func (m *MockDevice) GetVirtualCap(vcap string) (string, error) {
+	if val, ok := m.virtualCaps[vcap]; ok {
+		return val, nil
+	}
+	return "", fmt.Errorf("%s : specified virtual capability is missing", vcap)
+}
+func (m *MockDevice) GetVirtualCapabilityAsInt(vcap string) (int, error) {
+	return 0, nil
+}
+func (m *MockDevice) GetCapabilities(caps []string) map[string]string {
+	return m.staticCaps
+}
+func (m *MockDevice) GetStaticCaps(caps []string) (map[string]string, error) {
+	return m.staticCaps, nil
+}
+func (m *MockDevice) GetCapability(cap string) string {
+	return m.staticCaps[cap]
+}
+func (m *MockDevice) GetStaticCap(cap string) (string, error) {
+	if val, ok := m.staticCaps[cap]; ok {
+		return val, nil
+	}
+	return "", fmt.Errorf("%s : specified capability is missing", cap)
+}
+func (m *MockDevice) GetCapabilityAsInt(cap string) (int, error) {
+	return 0, nil
+}
+func (m *MockDevice) IsRoot() bool {
+	return false
+}
+func (m *MockDevice) GetRootID() string {
+	return ""
+}
+func (m *MockDevice) GetParentID() string {
+	return ""
+}
+func (m *MockDevice) GetDeviceID() (string, error) {
+	return "mock_device", nil
+}
+func (m *MockDevice) GetNormalizedUserAgent() (string, error) {
+	return "", nil
+}
+func (m *MockDevice) GetOriginalUserAgent() (string, error) {
+	return "", nil
+}
+func (m *MockDevice) GetUserAgent() (string, error) {
+	return "", nil
+}
+func (m *MockDevice) Destroy() {
+}
+func (m *MockDevice) ORTB2GetDevicetype() (int, error) {
+	var missingCaps []string
+
+	// Priority 1: Check is_ott (static capability)
+	if isOTT, err := m.GetStaticCap("is_ott"); err == nil {
+		if isOTT == "true" {
+			return wurfl.ORTB2DeviceTypeSetTopBox, nil
+		}
+	} else {
+		missingCaps = append(missingCaps, "is_ott")
+	}
+
+	// Priority 2: Check is_console (static capability)
+	if isConsole, err := m.GetStaticCap("is_console"); err == nil {
+		if isConsole == "true" {
+			return wurfl.ORTB2DeviceTypeConnectedDevice, nil
+		}
+	} else {
+		missingCaps = append(missingCaps, "is_console")
+	}
+
+	// Priority 3: Check physical_form_factor for out_of_home_device (static capability)
+	if physicalFormFactor, err := m.GetStaticCap("physical_form_factor"); err == nil {
+		if physicalFormFactor == "out_of_home_device" {
+			return wurfl.ORTB2DeviceTypeOOH, nil
+		}
+	} else {
+		missingCaps = append(missingCaps, "physical_form_factor")
+	}
+
+	// Priority 4: Check form_factor (virtual capability)
+	formFactor, err := m.GetVirtualCap("form_factor")
+	if err != nil {
+		missingCaps = append(missingCaps, "form_factor")
+		return wurfl.ORTB2DeviceTypeUnknown, fmt.Errorf("ORTB2GetDevicetype: missing capabilities: %s", strings.Join(missingCaps, ", "))
+	}
+
+	switch formFactor {
+	case "Desktop":
+		return wurfl.ORTB2DeviceTypePersonalComputer, nil
+	case "Smartphone", "Feature Phone":
+		return wurfl.ORTB2DeviceTypePhone, nil
+	case "Tablet":
+		return wurfl.ORTB2DeviceTypeTablet, nil
+	case "Smart-TV":
+		return wurfl.ORTB2DeviceTypeConnectedTV, nil
+	case "Other non-Mobile", "Robot":
+		return wurfl.ORTB2DeviceTypeConnectedDevice, nil
+	case "Other Mobile":
+		return wurfl.ORTB2DeviceTypeMobileTablet, nil
+	default:
+		if len(missingCaps) > 0 {
+			return wurfl.ORTB2DeviceTypeUnknown, fmt.Errorf("ORTB2GetDevicetype: missing capabilities: %s", strings.Join(missingCaps, ", "))
+		}
+		return wurfl.ORTB2DeviceTypeUnknown, nil
+	}
+}
+
+func Test_ORTB2GetDevicetype(t *testing.T) {
+	tests := []struct {
+		name        string
+		staticCaps  map[string]string
+		virtualCaps map[string]string
+		expected    int
+		wantErr     bool
+	}{
+		{
+			name: "Mobile phone",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "phone_phablet",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Smartphone",
+			},
+			expected: wurfl.ORTB2DeviceTypePhone,
+		},
+		{
+			name: "Tablet",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "tablet_slate",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Tablet",
+			},
+			expected: wurfl.ORTB2DeviceTypeTablet,
+		},
+		{
+			name: "Smart TV",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "screen_smart_tv",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Smart-TV",
+			},
+			expected: wurfl.ORTB2DeviceTypeConnectedTV,
+		},
+		{
+			name: "Console",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "true",
+				"physical_form_factor": "screen_game_console",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Other non-Mobile",
+			},
+			expected: wurfl.ORTB2DeviceTypeConnectedDevice,
+		},
+		{
+			name: "Desktop - Windows Brave",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "computer",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Desktop",
+			},
+			expected: wurfl.ORTB2DeviceTypePersonalComputer,
+		},
+		{
+			name: "Set Top Box - OTT device",
+			staticCaps: map[string]string{
+				"is_ott":               "true",
+				"is_console":           "false",
+				"physical_form_factor": "screen_connected_device",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Other non-Mobile",
+			},
+			expected: wurfl.ORTB2DeviceTypeSetTopBox,
+		},
+		{
+			name: "OOH - Out of Home device",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "out_of_home_device",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Other non-Mobile",
+			},
+			expected: wurfl.ORTB2DeviceTypeOOH,
+		},
+		{
+			name: "Other Mobile device",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "other",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Other Mobile",
+			},
+			expected: wurfl.ORTB2DeviceTypeMobileTablet,
+		},
+		{
+			name: "Feature phone",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "phone_bar",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Feature Phone",
+			},
+			expected: wurfl.ORTB2DeviceTypePhone,
+		},
+		{
+			name: "Robot",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "other",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Robot",
+			},
+			expected: wurfl.ORTB2DeviceTypeConnectedDevice,
+		},
+		{
+			name: "Other non-Mobile device",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "connected_device",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Other non-Mobile",
+			},
+			expected: wurfl.ORTB2DeviceTypeConnectedDevice,
+			wantErr:  false,
+		},
+		{
+			name: "Missing physical_form_factor but form_factor available",
+			staticCaps: map[string]string{
+				"is_ott":     "false",
+				"is_console": "false",
+			},
+			virtualCaps: map[string]string{
+				"form_factor": "Smartphone",
+			},
+			expected: wurfl.ORTB2DeviceTypePhone,
+			wantErr:  false,
+		},
+		{
+			name: "Missing form_factor capability",
+			staticCaps: map[string]string{
+				"is_ott":               "false",
+				"is_console":           "false",
+				"physical_form_factor": "computer",
+			},
+			virtualCaps: map[string]string{},
+			expected:    wurfl.ORTB2DeviceTypeUnknown,
+			wantErr:     true,
+		},
+		{
+			name: "Missing multiple capabilities",
+			staticCaps: map[string]string{
+				"is_ott": "false",
+			},
+			virtualCaps: map[string]string{},
+			expected:    wurfl.ORTB2DeviceTypeUnknown,
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockDevice := &MockDevice{
+				staticCaps:  tt.staticCaps,
+				virtualCaps: tt.virtualCaps,
+			}
+
+			got, err := mockDevice.ORTB2GetDevicetype()
+			if tt.wantErr {
+				assert.Error(t, err, "ORTB2GetDevicetype expected an error")
+				assert.Contains(t, err.Error(), "missing capabilities")
+			} else {
+				assert.NoErrorf(t, err, "ORTB2GetDevicetype error: %v", err)
+			}
+			assert.Equal(t, tt.expected, got, "ORTB2GetDevicetype() = %d, want %d", got, tt.expected)
+		})
+	}
 }
 
 func TestGetLastUpdated(t *testing.T) {

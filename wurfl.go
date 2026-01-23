@@ -90,6 +90,19 @@ const (
 	WurflUpdaterFrequencyWeekly = C.WURFL_UPDATER_FREQ_WEEKLY
 )
 
+// ORTB2 device types derived from ORTB 2.6 specification
+const (
+	ORTB2DeviceTypeUnknown          = 0 // Unknown
+	ORTB2DeviceTypeMobileTablet     = 1 // Mobile/Tablet - General
+	ORTB2DeviceTypePersonalComputer = 2 // Personal Computer
+	ORTB2DeviceTypeConnectedTV      = 3 // Connected TV
+	ORTB2DeviceTypePhone            = 4 // Phone
+	ORTB2DeviceTypeTablet           = 5 // Tablet
+	ORTB2DeviceTypeConnectedDevice  = 6 // Connected Device
+	ORTB2DeviceTypeSetTopBox        = 7 // Set Top Box
+	ORTB2DeviceTypeOOH              = 8 // OOH Device
+)
+
 // HeaderQuality represents the header quality value
 type HeaderQuality int
 
@@ -175,6 +188,7 @@ type DeviceHandler interface {
 	GetOriginalUserAgent() (string, error)
 	GetUserAgent() (string, error)
 	Destroy()
+	ORTB2GetDevicetype() (int, error)
 }
 
 // Updater defines API methods for the Updater
@@ -191,7 +205,7 @@ type Updater interface {
 }
 
 // Version is the current version of this package.
-const Version = "1.31.0"
+const Version = "1.32.0"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
@@ -1133,6 +1147,73 @@ func (d *Device) Destroy() {
 	if d.Device != nil {
 		C.wurfl_device_destroy(d.Device)
 		d.Device = nil
+	}
+}
+
+// ORTB2GetDevicetype returns the ORTB2 device type based on WURFL capabilities.
+// Device types are derived from ORTB 2.6 specification (see ORTB2DeviceType* constants).
+// If some capabilities are missing, the function continues checking the remaining ones
+// and returns an error listing all missing capabilities only if the result is Unknown.
+//
+// Required static capabilities: is_ott, is_console, physical_form_factor
+// Required virtual capabilities: form_factor
+func (d *Device) ORTB2GetDevicetype() (int, error) {
+	var missingCaps []string
+
+	// Priority 1: Check is_ott (static capability)
+	if isOTT, err := d.GetStaticCap("is_ott"); err == nil {
+		if isOTT == "true" {
+			return ORTB2DeviceTypeSetTopBox, nil
+		}
+	} else {
+		missingCaps = append(missingCaps, "is_ott")
+	}
+
+	// Priority 2: Check is_console (static capability)
+	if isConsole, err := d.GetStaticCap("is_console"); err == nil {
+		if isConsole == "true" {
+			return ORTB2DeviceTypeConnectedDevice, nil
+		}
+	} else {
+		missingCaps = append(missingCaps, "is_console")
+	}
+
+	// Priority 3: Check physical_form_factor for out_of_home_device (static capability)
+	if physicalFormFactor, err := d.GetStaticCap("physical_form_factor"); err == nil {
+		if physicalFormFactor == "out_of_home_device" {
+			return ORTB2DeviceTypeOOH, nil
+		}
+	} else {
+		missingCaps = append(missingCaps, "physical_form_factor")
+	}
+
+	// Priority 4: Check form_factor (virtual capability)
+	formFactor, err := d.GetVirtualCap("form_factor")
+	if err != nil {
+		missingCaps = append(missingCaps, "form_factor")
+		// form_factor not available, return unknown with error listing all missing capabilities
+		return ORTB2DeviceTypeUnknown, fmt.Errorf("ORTB2GetDevicetype: missing capabilities: %s", strings.Join(missingCaps, ", "))
+	}
+
+	switch formFactor {
+	case "Desktop":
+		return ORTB2DeviceTypePersonalComputer, nil
+	case "Smartphone", "Feature Phone":
+		return ORTB2DeviceTypePhone, nil
+	case "Tablet":
+		return ORTB2DeviceTypeTablet, nil
+	case "Smart-TV":
+		return ORTB2DeviceTypeConnectedTV, nil
+	case "Other non-Mobile", "Robot":
+		return ORTB2DeviceTypeConnectedDevice, nil
+	case "Other Mobile":
+		return ORTB2DeviceTypeMobileTablet, nil
+	default:
+		// Unknown form_factor, return unknown with error if there were missing capabilities
+		if len(missingCaps) > 0 {
+			return ORTB2DeviceTypeUnknown, fmt.Errorf("ORTB2GetDevicetype: missing capabilities: %s", strings.Join(missingCaps, ", "))
+		}
+		return ORTB2DeviceTypeUnknown, nil
 	}
 }
 
