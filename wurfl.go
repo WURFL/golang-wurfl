@@ -16,6 +16,7 @@ package wurfl
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -1158,41 +1159,30 @@ func (d *Device) Destroy() {
 // Required static capabilities: is_ott, is_console, physical_form_factor
 // Required virtual capabilities: form_factor
 func (d *Device) ORTB2GetDevicetype() (int, error) {
-	var missingCaps []string
+	errMissingCaps := "this method requires is_ott, is_console, physical_form_factor static caps and form_factor virtual cap"
+
+	// Check that required capabilities are available
+	isOTT, errOtt := d.GetStaticCap("is_ott")
+	isConsole, errConsole := d.GetStaticCap("is_console")
+	physicalFormFactor, errPFF := d.GetStaticCap("physical_form_factor")
+	formFactor, errFF := d.GetVirtualCap("form_factor")
+	if errOtt != nil || errConsole != nil || errPFF != nil || errFF != nil {
+		return ORTB2DeviceTypeUnknown, errors.New("ORTB2GetDevicetype: " + errMissingCaps)
+	}
 
 	// Priority 1: Check is_ott (static capability)
-	if isOTT, err := d.GetStaticCap("is_ott"); err == nil {
-		if isOTT == "true" {
-			return ORTB2DeviceTypeSetTopBox, nil
-		}
-	} else {
-		missingCaps = append(missingCaps, "is_ott")
+	if isOTT == "true" {
+		return ORTB2DeviceTypeSetTopBox, nil
 	}
 
 	// Priority 2: Check is_console (static capability)
-	if isConsole, err := d.GetStaticCap("is_console"); err == nil {
-		if isConsole == "true" {
-			return ORTB2DeviceTypeConnectedDevice, nil
-		}
-	} else {
-		missingCaps = append(missingCaps, "is_console")
+	if isConsole == "true" {
+		return ORTB2DeviceTypeConnectedDevice, nil
 	}
 
 	// Priority 3: Check physical_form_factor for out_of_home_device (static capability)
-	if physicalFormFactor, err := d.GetStaticCap("physical_form_factor"); err == nil {
-		if physicalFormFactor == "out_of_home_device" {
-			return ORTB2DeviceTypeOOH, nil
-		}
-	} else {
-		missingCaps = append(missingCaps, "physical_form_factor")
-	}
-
-	// Priority 4: Check form_factor (virtual capability)
-	formFactor, err := d.GetVirtualCap("form_factor")
-	if err != nil {
-		missingCaps = append(missingCaps, "form_factor")
-		// form_factor not available, return unknown with error listing all missing capabilities
-		return ORTB2DeviceTypeUnknown, fmt.Errorf("ORTB2GetDevicetype: missing capabilities: %s", strings.Join(missingCaps, ", "))
+	if physicalFormFactor == "out_of_home_device" {
+		return ORTB2DeviceTypeOOH, nil
 	}
 
 	switch formFactor {
@@ -1209,10 +1199,7 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 	case "Other Mobile":
 		return ORTB2DeviceTypeMobileTablet, nil
 	default:
-		// Unknown form_factor, return unknown with error if there were missing capabilities
-		if len(missingCaps) > 0 {
-			return ORTB2DeviceTypeUnknown, fmt.Errorf("ORTB2GetDevicetype: missing capabilities: %s", strings.Join(missingCaps, ", "))
-		}
+		// Unknown form_factor
 		return ORTB2DeviceTypeUnknown, nil
 	}
 }
