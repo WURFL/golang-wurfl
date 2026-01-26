@@ -93,8 +93,8 @@ const (
 
 // ORTB2 device types derived from ORTB 2.6 specification
 const (
-	ORTB2DeviceTypeUnknown          = 0 // Unknown
-	ORTB2DeviceTypeMobileTablet     = 1 // Mobile/Tablet - General
+	ORTB2DeviceTypeBot              = 0 // Bot/Spider/Crawler
+	ORTB2DeviceTypeMobile           = 1 // Mobile/Tablet - General
 	ORTB2DeviceTypePersonalComputer = 2 // Personal Computer
 	ORTB2DeviceTypeConnectedTV      = 3 // Connected TV
 	ORTB2DeviceTypePhone            = 4 // Phone
@@ -206,7 +206,7 @@ type Updater interface {
 }
 
 // Version is the current version of this package.
-const Version = "1.32.0"
+const Version = "1.32.1"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
@@ -1153,8 +1153,10 @@ func (d *Device) Destroy() {
 
 // ORTB2GetDevicetype returns the ORTB2 device type based on WURFL capabilities.
 // Device types are derived from ORTB 2.6 specification (see ORTB2DeviceType* constants).
-// If some capabilities are missing, the function returns Unknown
+// If some capabilities are missing, the function returns -1
 // and an error listing the needed capabilities.
+// This implementation uses value 0 to indicate bot/robot/crawler devices
+// (as there is no value defined in ORTB2 for these devices)
 //
 // Required static capabilities: is_ott, is_console, physical_form_factor
 // Required virtual capabilities: form_factor
@@ -1167,7 +1169,7 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 	physicalFormFactor, errPFF := d.GetStaticCap("physical_form_factor")
 	formFactor, errFF := d.GetVirtualCap("form_factor")
 	if errOtt != nil || errConsole != nil || errPFF != nil || errFF != nil {
-		return ORTB2DeviceTypeUnknown, errors.New("ORTB2GetDevicetype: " + errMissingCaps)
+		return -1, errors.New("ORTB2GetDevicetype: " + errMissingCaps)
 	}
 
 	// Priority 1: Check is_ott (static capability)
@@ -1194,13 +1196,12 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 		return ORTB2DeviceTypeTablet, nil
 	case "Smart-TV":
 		return ORTB2DeviceTypeConnectedTV, nil
-	case "Other non-Mobile", "Robot":
+	case "Other Non-Mobile":
 		return ORTB2DeviceTypeConnectedDevice, nil
 	case "Other Mobile":
-		return ORTB2DeviceTypeMobileTablet, nil
+		return ORTB2DeviceTypeMobile, nil
 	default:
-		// Unknown form_factor
-		return ORTB2DeviceTypeUnknown, nil
+		return ORTB2DeviceTypeBot, nil
 	}
 }
 
