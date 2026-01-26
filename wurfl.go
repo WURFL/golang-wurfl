@@ -93,7 +93,7 @@ const (
 
 // ORTB2 device types derived from ORTB 2.6 specification
 const (
-	ORTB2DeviceTypeUnknown          = 0 // Unknown
+	ORTB2DeviceTypeBot              = 0 // Bot/Spider/Crawler
 	ORTB2DeviceTypeMobile           = 1 // Mobile/Tablet - General
 	ORTB2DeviceTypePersonalComputer = 2 // Personal Computer
 	ORTB2DeviceTypeConnectedTV      = 3 // Connected TV
@@ -1153,8 +1153,10 @@ func (d *Device) Destroy() {
 
 // ORTB2GetDevicetype returns the ORTB2 device type based on WURFL capabilities.
 // Device types are derived from ORTB 2.6 specification (see ORTB2DeviceType* constants).
-// If some capabilities are missing, the function returns Unknown
+// If some capabilities are missing, the function returns -1
 // and an error listing the needed capabilities.
+// This implementation uses value 0 to indicate bot/robot/crawler devices
+// (as there is no value defined in ORTB2 for these devices)
 //
 // Required static capabilities: is_ott, is_console, physical_form_factor
 // Required virtual capabilities: form_factor
@@ -1167,7 +1169,7 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 	physicalFormFactor, errPFF := d.GetStaticCap("physical_form_factor")
 	formFactor, errFF := d.GetVirtualCap("form_factor")
 	if errOtt != nil || errConsole != nil || errPFF != nil || errFF != nil {
-		return ORTB2DeviceTypeUnknown, errors.New("ORTB2GetDevicetype: " + errMissingCaps)
+		return -1, errors.New("ORTB2GetDevicetype: " + errMissingCaps)
 	}
 
 	// Priority 1: Check is_ott (static capability)
@@ -1199,12 +1201,7 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 	case "Other Mobile":
 		return ORTB2DeviceTypeMobile, nil
 	default:
-		// If the default case is hit, it means form_factor has a value that is not
-		// mapped to any ORTB2 device type. Currently, this only occurs when
-		// form_factor is "Robot". Thus, an unknown ORTB2 device type is equivalent
-		// to a bot/crawler device.
-
-		return ORTB2DeviceTypeUnknown, nil
+		return ORTB2DeviceTypeBot, nil
 	}
 }
 
