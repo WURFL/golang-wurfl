@@ -1734,6 +1734,85 @@ func TestGetVirtualCaps(t *testing.T) {
 	})
 }
 
+func Test_ORTB2GetDevicetype(t *testing.T) {
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	// Check if all required capabilities are available
+	requiredStaticCaps := []string{"is_ott", "is_console", "physical_form_factor"}
+	requiredVirtualCaps := []string{"form_factor"}
+
+	hasAllCaps := true
+	for _, cap := range requiredStaticCaps {
+		if !wengine.HasCapability(cap) {
+			hasAllCaps = false
+			break
+		}
+	}
+	for _, vcap := range requiredVirtualCaps {
+		if !wengine.HasVirtualCapability(vcap) {
+			hasAllCaps = false
+			break
+		}
+	}
+
+	if !hasAllCaps {
+		// Test that method returns error when capabilities are missing
+		t.Run("Missing capabilities", func(t *testing.T) {
+			ua := "Mozilla/5.0 (Linux; Android 13; ONIX Build/TP1A.220624.014) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.7559.59 Mobile Safari/537.36"
+			device, err := wengine.LookupUserAgent(ua)
+			require.NoError(t, err)
+			defer device.Destroy()
+
+			_, err = device.ORTB2GetDevicetype()
+			assert.Error(t, err, "ORTB2GetDevicetype should return error when capabilities are missing")
+			assert.Contains(t, err.Error(), "this method requires")
+		})
+		return
+	}
+
+	// All capabilities available, test with real user agents
+	tests := []struct {
+		name     string
+		ua       string
+		expected int
+	}{
+		{
+			name:     "Smartphone",
+			ua:       "Mozilla/5.0 (Linux; Android 13; ONIX Build/TP1A.220624.014) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.7559.59 Mobile Safari/537.36",
+			expected: wurfl.ORTB2DeviceTypePhone,
+		},
+		{
+			name:     "Tablet",
+			ua:       "Mozilla/5.0 (Linux; Android 16; SM-X400 Build/BP2A.250605.031.A3; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.143 Safari/537.36",
+			expected: wurfl.ORTB2DeviceTypeTablet,
+		},
+		{
+			name:     "Desktop",
+			ua:       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Brave Chrome/126.0.6448.0 Safari/537.36",
+			expected: wurfl.ORTB2DeviceTypePersonalComputer,
+		},
+		{
+			name:     "Console",
+			ua:       "Mozilla/5.0 (PlayStation Vita 3.73) AppleWebKit/537.73 (KHTML, like Gecko) Silk/3.2 VTE/3.73",
+			expected: wurfl.ORTB2DeviceTypeConnectedDevice,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			device, err := wengine.LookupUserAgent(tt.ua)
+			require.NoError(t, err)
+			defer device.Destroy()
+
+			got, err := device.ORTB2GetDevicetype()
+			assert.NoError(t, err, "ORTB2GetDevicetype should not return error")
+			assert.Equal(t, tt.expected, got, "ORTB2GetDevicetype() = %d, want %d", got, tt.expected)
+		})
+	}
+}
+
 func TestGetLastUpdated(t *testing.T) {
 	// get env var SM_UPDATER_DATA_URL URL value (from scientiamobile Vault)
 	URL := os.Getenv("SM_UPDATER_DATA_URL")
