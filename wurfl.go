@@ -1194,7 +1194,7 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 		return ORTB2DeviceTypeTablet, nil
 	case "Smart-TV":
 		return ORTB2DeviceTypeConnectedTV, nil
-	case "Other non-Mobile":
+	case "Other Non-Mobile":
 		return ORTB2DeviceTypeConnectedDevice, nil
 	case "Other Mobile":
 		return ORTB2DeviceTypeMobile, nil
