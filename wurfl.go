@@ -1153,8 +1153,8 @@ func (d *Device) Destroy() {
 
 // ORTB2GetDevicetype returns the ORTB2 device type based on WURFL capabilities.
 // Device types are derived from ORTB 2.6 specification (see ORTB2DeviceType* constants).
-// If some capabilities are missing, the function continues checking the remaining ones
-// and returns an error listing all missing capabilities only if the result is Unknown.
+// If some capabilities are missing, the function returns Unknown
+// and an error listing the needed capabilities.
 //
 // Required static capabilities: is_ott, is_console, physical_form_factor
 // Required virtual capabilities: form_factor
