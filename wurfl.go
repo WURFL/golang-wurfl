@@ -1199,7 +1199,11 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 	case "Other Mobile":
 		return ORTB2DeviceTypeMobile, nil
 	default:
-		// Unknown form_factor
+		// If the default case is hit, it means form_factor has a value that is not
+		// mapped to any ORTB2 device type. Currently, this only occurs when
+		// form_factor is "Robot". Thus, an unknown ORTB2 device type is equivalent
+		// to a bot/crawler device.
+
 		return ORTB2DeviceTypeUnknown, nil
 	}
 }
