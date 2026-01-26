@@ -94,7 +94,7 @@ const (
 // ORTB2 device types derived from ORTB 2.6 specification
 const (
 	ORTB2DeviceTypeUnknown          = 0 // Unknown
-	ORTB2DeviceTypeMobileTablet     = 1 // Mobile/Tablet - General
+	ORTB2DeviceTypeMobile           = 1 // Mobile/Tablet - General
 	ORTB2DeviceTypePersonalComputer = 2 // Personal Computer
 	ORTB2DeviceTypeConnectedTV      = 3 // Connected TV
 	ORTB2DeviceTypePhone            = 4 // Phone
@@ -206,7 +206,7 @@ type Updater interface {
 }
 
 // Version is the current version of this package.
-const Version = "1.32.0"
+const Version = "1.32.1"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
@@ -1194,10 +1194,10 @@ func (d *Device) ORTB2GetDevicetype() (int, error) {
 		return ORTB2DeviceTypeTablet, nil
 	case "Smart-TV":
 		return ORTB2DeviceTypeConnectedTV, nil
-	case "Other non-Mobile", "Robot":
+	case "Other non-Mobile":
 		return ORTB2DeviceTypeConnectedDevice, nil
 	case "Other Mobile":
-		return ORTB2DeviceTypeMobileTablet, nil
+		return ORTB2DeviceTypeMobile, nil
 	default:
 		// Unknown form_factor
 		return ORTB2DeviceTypeUnknown, nil
