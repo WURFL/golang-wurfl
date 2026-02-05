@@ -93,7 +93,7 @@ const (
 
 // ORTB2 device types derived from ORTB 2.6 specification
 const (
-	ORTB2DeviceTypeBot              = 0 // Bot/Spider/Crawler
+	ORTB2DeviceTypeBot              = 0 // Non standard IAB, ScientiaMobile extension to account for Bot/Spider/Crawler
 	ORTB2DeviceTypeMobile           = 1 // Mobile/Tablet - General
 	ORTB2DeviceTypePersonalComputer = 2 // Personal Computer
 	ORTB2DeviceTypeConnectedTV      = 3 // Connected TV
