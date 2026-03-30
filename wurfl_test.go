@@ -1735,7 +1735,20 @@ func TestGetVirtualCaps(t *testing.T) {
 }
 
 func Test_ORTB2GetDevicetype(t *testing.T) {
-	wengine := fixtureCreateEngine(t)
+	var wengine *wurfl.Wurfl
+
+	URL := os.Getenv("SM_UPDATER_DATA_URL_ORTB2")
+	if URL != "" {
+		err := wurfl.Download(URL, ".")
+		require.NoError(t, err)
+		defer os.Remove("wurfl.zip")
+
+		var createErr error
+		wengine, createErr = wurfl.Create("./wurfl.zip", nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
+		require.NoError(t, createErr)
+	} else {
+		wengine = fixtureCreateEngine(t)
+	}
 	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
@@ -1800,7 +1813,7 @@ func Test_ORTB2GetDevicetype(t *testing.T) {
 		},
 		{
 			name:     "Console",
-			ua:       "Mozilla/5.0 (PlayStation Vita 3.73) AppleWebKit/537.73 (KHTML, like Gecko) Silk/3.2 VTE/3.73",
+			ua:       "Mozilla/5.0 (PlayStation 5/SmartTV) AppleWebKit/605.1.15 (KHTML, like Gecko)",
 			expected: wurfl.ORTB2DeviceTypeConnectedDevice,
 		},
 	}
