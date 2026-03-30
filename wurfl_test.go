@@ -1794,6 +1794,11 @@ func Test_ORTB2GetDevicetype(t *testing.T) {
 			expected: wurfl.ORTB2DeviceTypePersonalComputer,
 		},
 		{
+			name:     "iPhone",
+			ua:       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
+			expected: wurfl.ORTB2DeviceTypePhone,
+		},
+		{
 			name:     "Console",
 			ua:       "Mozilla/5.0 (PlayStation Vita 3.73) AppleWebKit/537.73 (KHTML, like Gecko) Silk/3.2 VTE/3.73",
 			expected: wurfl.ORTB2DeviceTypeConnectedDevice,
