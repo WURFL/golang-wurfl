@@ -2,7 +2,9 @@ package wurfl_test
 
 import (
 	"net/http"
+	"slices"
 	"testing"
+	"time"
 
 	wurfl "github.com/WURFL/golang-wurfl"
 	"github.com/stretchr/testify/assert"
@@ -645,4 +647,77 @@ func BenchmarkGetVirtualCap(b *testing.B) {
 		}
 	}
 	b.StopTimer()
+}
+
+func TestP99_LookupRequest_NoCache(t *testing.T) {
+	wengine := fixtureCreateEngineCachesize(t, "")
+	defer wengine.Destroy()
+	ua := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
+	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req.Header.Add("User-Agent", ua)
+	req.Header.Add("Sec-CH-UA", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"")
+	req.Header.Add("Sec-CH-UA-Full-Version", "90.0.4430.91")
+	req.Header.Add("Sec-CH-UA-Platform", "Android")
+	req.Header.Add("Sec-CH-UA-Platform-Version", "11")
+	req.Header.Add("Sec-CH-UA-Model", "SM-M315F")
+
+	const iterations = 1000000
+	durations := make([]time.Duration, iterations)
+
+	// warmup
+	for i := 0; i < 100; i++ {
+		device, _ := wengine.LookupRequest(req)
+		device.Destroy()
+	}
+
+	for i := 0; i < iterations; i++ {
+		start := time.Now()
+		device, _ := wengine.LookupRequest(req)
+		device.Destroy()
+		durations[i] = time.Since(start)
+	}
+
+	slices.Sort(durations)
+	p50 := durations[iterations*50/100]
+	p95 := durations[iterations*95/100]
+	p99 := durations[iterations*99/100]
+	p100 := durations[iterations-1]
+	t.Logf("Iterations: %d", iterations)
+	t.Logf("P50:  %v", p50)
+	t.Logf("P95:  %v", p95)
+	t.Logf("P99:  %v", p99)
+	t.Logf("P100: %v", p100)
+}
+
+func TestP99_LookupUserAgent_NoCache(t *testing.T) {
+	wengine := fixtureCreateEngineCachesize(t, "")
+	defer wengine.Destroy()
+	ua := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
+
+	const iterations = 1000000
+	durations := make([]time.Duration, iterations)
+
+	// warmup
+	for i := 0; i < 1000; i++ {
+		device, _ := wengine.LookupUserAgent(ua)
+		device.Destroy()
+	}
+
+	for i := 0; i < iterations; i++ {
+		start := time.Now()
+		device, _ := wengine.LookupUserAgent(ua)
+		device.Destroy()
+		durations[i] = time.Since(start)
+	}
+
+	slices.Sort(durations)
+	p50 := durations[iterations*50/100]
+	p95 := durations[iterations*95/100]
+	p99 := durations[iterations*99/100]
+	p100 := durations[iterations-1]
+	t.Logf("Iterations: %d", iterations)
+	t.Logf("P50:  %v", p50)
+	t.Logf("P95:  %v", p95)
+	t.Logf("P99:  %v", p99)
+	t.Logf("P100: %v", p100)
 }
