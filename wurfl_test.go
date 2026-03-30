@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -1295,13 +1296,16 @@ func TestDownloadJira1236(t *testing.T) {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
+	// Use a dedicated temp directory to avoid conflicts with other tests
+	tempDir := t.TempDir()
+
 	// Copy evaluation wurfl.zip installed with libwurfl here
 	// this file could be under /usr/share/wurfl or /usr/local/share/wurfl depending on the system
 	srcPath := "/usr/share/wurfl/wurfl.zip"
 	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
 		srcPath = "/usr/local/share/wurfl/wurfl.zip"
 	}
-	destPath := "wurfl.zip"
+	destPath := filepath.Join(tempDir, "wurfl.zip")
 
 	err := copyFile(srcPath, destPath)
 	if err != nil {
@@ -1321,20 +1325,16 @@ func TestDownloadJira1236(t *testing.T) {
 	}
 
 	// Create the engine with eval version, the capfilter makes the engine creation fail
-	_, err = wurfl.Create("wurfl.zip", nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
+	_, err = wurfl.Create(destPath, nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
 
 	assert.ErrorIs(t, err, wurfl.ErrCantLoadCapabilityNotFound)
 
 	// Now download first a fresh wurfl.zip, and then create the engine
-	err = wurfl.Download(URL, ".")
+	err = wurfl.Download(URL, tempDir)
 	require.NoError(t, err)
 
-	_, err = wurfl.Create("wurfl.zip", nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
+	_, err = wurfl.Create(destPath, nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
 	require.NoError(t, err)
-
-	// Remove local wurfl.zip
-	err = os.Remove("wurfl.zip")
-	assert.NoError(t, err)
 }
 
 // TestDownload tests the Download function of the wurfl package. It creates a temporary
@@ -1739,12 +1739,14 @@ func Test_ORTB2GetDevicetype(t *testing.T) {
 
 	URL := os.Getenv("SM_UPDATER_DATA_URL_ORTB2")
 	if URL != "" {
-		err := wurfl.Download(URL, ".")
+		// Use a dedicated temp directory to avoid conflicts with other tests
+		tempDir := t.TempDir()
+		err := wurfl.Download(URL, tempDir)
 		require.NoError(t, err)
-		defer os.Remove("wurfl.zip")
 
+		wurflPath := filepath.Join(tempDir, "wurfl.zip")
 		var createErr error
-		wengine, createErr = wurfl.Create("./wurfl.zip", nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
+		wengine, createErr = wurfl.Create(wurflPath, nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
 		require.NoError(t, createErr)
 	} else {
 		wengine = fixtureCreateEngine(t)
