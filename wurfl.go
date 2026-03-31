@@ -131,9 +131,10 @@ const (
 // Wurfl represents internal wurfl infuze handle
 type Wurfl struct {
 	Wurfl                       C.wurfl_handle
-	ImportantHeaderNames        []string
-	importantHeaderCStringNames []*C.char
-	importantHeaderCStringMap   map[string]*C.char
+	ImportantHeaderNames             []string
+	importantHeaderNamesLower        []string
+	importantHeaderCStringNames      []*C.char
+	importantHeaderCStringMap        map[string]*C.char
 	capsCStringcache            map[string]*C.char
 }
 
@@ -320,10 +321,14 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 		C.wurfl_important_header_enumerator_move_next(ihe)
 	}
 
-	// build a map-based cache for important header names, keyed by lowercase for case-insensitive lookup
+	// pre-compute lowercase important header names and build a map-based cache
+	// keyed by lowercase for case-insensitive lookup
+	w.importantHeaderNamesLower = make([]string, len(w.ImportantHeaderNames))
 	w.importantHeaderCStringMap = make(map[string]*C.char, len(w.ImportantHeaderNames))
 	for i, name := range w.ImportantHeaderNames {
-		w.importantHeaderCStringMap[strings.ToLower(name)] = w.importantHeaderCStringNames[i]
+		lower := strings.ToLower(name)
+		w.importantHeaderNamesLower[i] = lower
+		w.importantHeaderCStringMap[lower] = w.importantHeaderCStringNames[i]
 	}
 
 	// initialize caps/vcaps CString cache for faster calls to libwurfl
@@ -402,6 +407,15 @@ func (w *Wurfl) SetAttr(attr int, value int) error {
 			C.wurfl_important_header_enumerator_move_next(ihe)
 		}
 		C.wurfl_important_header_enumerator_destroy(ihe)
+
+		// rebuild lowercase names and map-based cache for important header names
+		w.importantHeaderNamesLower = make([]string, len(w.ImportantHeaderNames))
+		w.importantHeaderCStringMap = make(map[string]*C.char, len(w.ImportantHeaderNames))
+		for i, name := range w.ImportantHeaderNames {
+			lower := strings.ToLower(name)
+			w.importantHeaderNamesLower[i] = lower
+			w.importantHeaderCStringMap[lower] = w.importantHeaderCStringNames[i]
+		}
 	}
 
 	return nil
@@ -760,18 +774,39 @@ func (w *Wurfl) LookupWithImportantHeaderMap(IHMap map[string]string) (*Device, 
 		return nil, checkHandleError(w.Wurfl)
 	}
 	defer C.wurfl_important_header_destroy(cih)
-	// fill it with IHMap entries
-	for importantHeaderName, headerValue := range IHMap {
-		// use cached C string for header name (case-insensitive lookup)
-		cheaderName, found := w.importantHeaderCStringMap[strings.ToLower(importantHeaderName)]
-		if !found {
-			continue
+	// Choose the iteration strategy based on which collection is smaller,
+	// to minimize the number of iterations and case-insensitive lookups.
+	if len(IHMap) < len(w.ImportantHeaderNames) {
+		// Few headers received: iterate over IHMap and look up cached C strings
+		// by lowercase key. Avoids cycling through all important headers when
+		// only a handful are provided.
+		for headerName, headerValue := range IHMap {
+			cheaderName, found := w.importantHeaderCStringMap[strings.ToLower(headerName)]
+			if !found {
+				continue
+			}
+			cheaderValue := C.CString(headerValue)
+			C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
+			C.free(unsafe.Pointer(cheaderValue))
 		}
-		cheaderValue := C.CString(headerValue)
-
-		// add this header to WURFL important headers object
-		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
-		C.free(unsafe.Pointer(cheaderValue))
+	} else {
+		// Many headers received: iterate over the known important header names
+		// (same pattern as LookupRequest). Build a lowercase-keyed map once
+		// to allow case-insensitive value lookups without repeated ToLower
+		// calls inside the loop.
+		lowerIHMap := make(map[string]string, len(IHMap))
+		for k, v := range IHMap {
+			lowerIHMap[strings.ToLower(k)] = v
+		}
+		for i, lowerName := range w.importantHeaderNamesLower {
+			headerValue, found := lowerIHMap[lowerName]
+			if !found {
+				continue
+			}
+			cheaderValue := C.CString(headerValue)
+			C.wurfl_important_header_set(cih, w.importantHeaderCStringNames[i], cheaderValue)
+			C.free(unsafe.Pointer(cheaderValue))
+		}
 	}
 
 	d.Device = C.wurfl_lookup_with_important_header(w.Wurfl, cih)
