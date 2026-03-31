@@ -273,6 +273,32 @@ func Test_GetCapability(t *testing.T) {
 	device.Destroy()
 }
 
+func Test_LookupRequestCaseInsensitiveHeaders(t *testing.T) {
+
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	// User-Agent
+	UserAgent := "Mozilla/5.0 (Linux; Android 11; Mi 9 Lite Build/QKQ1.190828.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/135.0.7049.113 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/511.0.0.73.36;IABMV/1;]"
+
+	// create http.Request and lookup using headers
+	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req.Header.Add("User-AgeNT", UserAgent)
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("SEc-Ch-UA", `"Android WebView";v="135", "Not-A.Brand";v="8", "Chromium";v="135"`)
+	req.Header.Add("Sec-Ch-Ua-MObiLe", "?1")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM", "Android")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM-VERsIOn", "12")
+
+	reqDevice, err := wengine.LookupRequest(req)
+	assert.NoErrorf(t, err, "LookupRequest returned an error: %s", err)
+	reqDeviceID, _ := reqDevice.GetDeviceID()
+	assert.Equal(t, "xiaomi_mi_9_lite_ver1_suban110", reqDeviceID)
+
+	reqDevice.Destroy()
+}
+
 func Test_LookupRequest(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
