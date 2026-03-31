@@ -794,18 +794,16 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 
 	// fill it with IHMap entries
 
-	for i, importantHeaderName := range w.ImportantHeaderNames {
-		// retrieve header from IHMap
-		header := IHMap[importantHeaderName]
-		if len(header) != 0 {
+	// fill it with IHMap entries
+	for importantHeaderName, headerValue := range IHMap {
+		// create C strings from header name and value
+		cheaderName := C.CString(importantHeaderName)
+		cheaderValue := C.CString(headerValue)
 
-			// create a C string from header
-			cheader := C.CString(header)
-
-			// add this header to cih
-			C.wurfl_important_header_set(cih, w.importantHeaderCStringNames[i], cheader)
-			C.free(unsafe.Pointer(cheader))
-		}
+		// add this header to WURFL importtant headers object
+		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
+		C.free(unsafe.Pointer(cheaderName))
+		C.free(unsafe.Pointer(cheaderValue))
 	}
 
 	d.Device = C.wurfl_get_device_with_important_header(w.Wurfl, cDeviceID, cih)
