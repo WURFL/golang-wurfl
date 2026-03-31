@@ -502,6 +502,49 @@ func Test_LookupWithImportantHeaderMapCaseInsensitive(t *testing.T) {
 	deviceIHM.Destroy()
 }
 
+func Test_LookupDeviceIDWithImportantHeaderMapCaseInsensitive(t *testing.T) {
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	UserAgent := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+
+	deviceLA, err := wengine.LookupUserAgent(UserAgent)
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+
+	LaDeviceID, _ := deviceLA.GetDeviceID()
+	LAAdvertisedBrowser, _ := deviceLA.GetVirtualCap("advertised_browser")
+
+	// create IHMap and lookup using headers. Headers names will have some case differences
+	// to check that LookuupWithImportantHeaderMap() is case insensitive
+
+	// Where strings could contain double quotes (") delimit values using backticks (`) to avoid escaping
+	IHMap := make(map[string]string)
+	IHMap["User-Agent"] = UserAgent
+	IHMap["accept-encoding"] = "gzip, deflate, br, zstd"
+	IHMap["Sec-ch-UA-Platform"] = "Android"
+	IHMap["Sec-CH-ua"] = `"Chromium";v="122", "Not(A:Brand";v="24", "Veera";v="122"`
+	IHMap["SEC-CH-UA-MOBILE"] = "?1"
+	IHMap["seC-cH-uA-fulL-versioN-lisT"] = `"Chromium";v="122.0.0.0", "Not(A:Brand";v="24.0.0.0", "Veera";v="122.0.0.0"`
+
+	deviceIHM, err := wengine.LookupDeviceIDWithImportantHeaderMap(LaDeviceID, IHMap)
+	assert.NoErrorf(t, err, "LookupDeviceIDWithImportantHeaderMap returned an error: %s", err)
+
+	IHMDeviceID, _ := deviceIHM.GetDeviceID()
+	IHMAdvertisedBrowser, _ := deviceIHM.GetVirtualCap("advertised_browser")
+	if LaDeviceID != IHMDeviceID {
+		t.Errorf("Devices are different, should be the same : %s, %s\n", LaDeviceID, IHMDeviceID)
+	}
+
+	// If case insensitivity is not working, the lookup with important header map will not find the same advertised_browser vcap will be different (Chrome instead of Veera)
+	if LAAdvertisedBrowser == IHMAdvertisedBrowser {
+		t.Errorf("advertised_browser are the same, should be different : %s, %s\n", LAAdvertisedBrowser, IHMAdvertisedBrowser)
+	}
+
+	deviceLA.Destroy()
+	deviceIHM.Destroy()
+}
+
 func Test_LookupDeviceIDWithRequest(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
