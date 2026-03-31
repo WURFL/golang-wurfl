@@ -616,6 +616,40 @@ func Test_LookupDeviceIDWithRequest(t *testing.T) {
 	deviceIHM.Destroy()
 }
 
+func Test_LookupDeviceIDWithRequestCaseInsensitiveHeaders(t *testing.T) {
+
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	// User-Agent
+	UserAgent := "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/135.0.0.0 Mobile Safari/537.36"
+	UADevice, err := wengine.LookupUserAgent(UserAgent)
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+	UADeviceID, _ := UADevice.GetDeviceID()
+	UADeviceAdvertisedOSVersion, _ := UADevice.GetVirtualCap("advertised_device_os_version")
+
+	// create http.Request and lookup using headers
+	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req.Header.Add("User-AgeNT", UserAgent)
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("SEc-Ch-UA", `"Android WebView";v="135", "Not-A.Brand";v="8", "Chromium";v="135"`)
+	req.Header.Add("Sec-Ch-Ua-MObiLe", "?1")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM", "Android")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM-VERsIOn", "12")
+
+	reqDevice, err := wengine.LookupDeviceIDWithRequest(UADeviceID, req)
+	assert.NoErrorf(t, err, "LookupDeviceIDWithRequest returned an error: %s", err)
+	reqDeviceID, _ := reqDevice.GetDeviceID()
+	reqDeviceAdvertisedOSVersion, _ := reqDevice.GetVirtualCap("advertised_device_os_version")
+	assert.Equal(t, UADeviceID, reqDeviceID)
+	// If case insensitivity is not working, the lookup with request will not find the same advertised_device_os_version vcap will be different (12 instead of 10)
+	assert.NotEqual(t, UADeviceAdvertisedOSVersion, reqDeviceAdvertisedOSVersion)
+
+	UADevice.Destroy()
+	reqDevice.Destroy()
+}
+
 func TestWurfl_UpdaterRunonce(t *testing.T) {
 	var wurflZip string
 
