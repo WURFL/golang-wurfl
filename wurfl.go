@@ -128,12 +128,43 @@ const (
 	HeaderQualityFull HeaderQuality = C.WURFL_ENUM_UACH_FULL
 )
 
+// headerTrie is a case-insensitive trie for ASCII header name lookup.
+// It avoids strings.ToLower allocations by folding case per-byte during traversal.
+type headerTrie struct {
+	children [128]*headerTrie
+	value    *C.char // non-nil at terminal nodes
+}
+
+func (t *headerTrie) set(key string, val *C.char) {
+	node := t
+	for i := 0; i < len(key); i++ {
+		c := key[i] | 0x20 // ASCII lowercase
+		if node.children[c] == nil {
+			node.children[c] = &headerTrie{}
+		}
+		node = node.children[c]
+	}
+	node.value = val
+}
+
+func (t *headerTrie) get(key string) (*C.char, bool) {
+	node := t
+	for i := 0; i < len(key); i++ {
+		c := key[i] | 0x20
+		node = node.children[c]
+		if node == nil {
+			return nil, false
+		}
+	}
+	return node.value, node.value != nil
+}
+
 // Wurfl represents internal wurfl infuze handle
 type Wurfl struct {
 	Wurfl                       C.wurfl_handle
 	ImportantHeaderNames        []string
 	importantHeaderCStringNames []*C.char
-	importantHeaderCStringMap   map[string]*C.char
+	importantHeaderTrie         headerTrie
 	capsCStringcache            map[string]*C.char
 }
 
@@ -320,10 +351,10 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 		C.wurfl_important_header_enumerator_move_next(ihe)
 	}
 
-	// build a map-based cache for important header names, keyed by lowercase for case-insensitive lookup
-	w.importantHeaderCStringMap = make(map[string]*C.char, len(w.ImportantHeaderNames))
+	// build a trie-based cache for important header names, for case-insensitive lookup without allocation
+	w.importantHeaderTrie = headerTrie{}
 	for i, name := range w.ImportantHeaderNames {
-		w.importantHeaderCStringMap[strings.ToLower(name)] = w.importantHeaderCStringNames[i]
+		w.importantHeaderTrie.set(name, w.importantHeaderCStringNames[i])
 	}
 
 	// initialize caps/vcaps CString cache for faster calls to libwurfl
@@ -403,10 +434,10 @@ func (w *Wurfl) SetAttr(attr int, value int) error {
 		}
 		C.wurfl_important_header_enumerator_destroy(ihe)
 
-		// rebuild the map-based cache for important header names
-		w.importantHeaderCStringMap = make(map[string]*C.char, len(w.ImportantHeaderNames))
+		// rebuild the trie-based cache for important header names
+		w.importantHeaderTrie = headerTrie{}
 		for i, name := range w.ImportantHeaderNames {
-			w.importantHeaderCStringMap[strings.ToLower(name)] = w.importantHeaderCStringNames[i]
+			w.importantHeaderTrie.set(name, w.importantHeaderCStringNames[i])
 		}
 	}
 
@@ -766,18 +797,16 @@ func (w *Wurfl) LookupWithImportantHeaderMap(IHMap map[string]string) (*Device, 
 		return nil, checkHandleError(w.Wurfl)
 	}
 	defer C.wurfl_important_header_destroy(cih)
-	// fill it with IHMap entries
+	// fill it with IHMap entries, using trie for case-insensitive lookup and reusable buffer to avoid malloc/free
+	buf := make([]byte, 0, 256)
 	for importantHeaderName, headerValue := range IHMap {
-		// use cached C string for header name (case-insensitive lookup)
-		cheaderName, found := w.importantHeaderCStringMap[strings.ToLower(importantHeaderName)]
+		cheaderName, found := w.importantHeaderTrie.get(importantHeaderName)
 		if !found {
 			continue
 		}
-		cheaderValue := C.CString(headerValue)
-
-		// add this header to WURFL important headers object
-		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
-		C.free(unsafe.Pointer(cheaderValue))
+		buf = append(buf[:0], headerValue...)
+		buf = append(buf, 0)
+		C.wurfl_important_header_set(cih, cheaderName, (*C.char)(unsafe.Pointer(&buf[0])))
 	}
 
 	d.Device = C.wurfl_lookup_with_important_header(w.Wurfl, cih)
@@ -807,18 +836,16 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	}
 	defer C.wurfl_important_header_destroy(cih)
 
-	// fill it with IHMap entries
+	// fill it with IHMap entries, using trie for case-insensitive lookup and reusable buffer to avoid malloc/free
+	buf := make([]byte, 0, 256)
 	for importantHeaderName, headerValue := range IHMap {
-		// use cached C string for header name (case-insensitive lookup)
-		cheaderName, found := w.importantHeaderCStringMap[strings.ToLower(importantHeaderName)]
+		cheaderName, found := w.importantHeaderTrie.get(importantHeaderName)
 		if !found {
 			continue
 		}
-		cheaderValue := C.CString(headerValue)
-
-		// add this header to WURFL important headers object
-		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
-		C.free(unsafe.Pointer(cheaderValue))
+		buf = append(buf[:0], headerValue...)
+		buf = append(buf, 0)
+		C.wurfl_important_header_set(cih, cheaderName, (*C.char)(unsafe.Pointer(&buf[0])))
 	}
 
 	d.Device = C.wurfl_get_device_with_important_header(w.Wurfl, cDeviceID, cih)
