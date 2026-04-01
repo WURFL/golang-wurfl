@@ -133,6 +133,7 @@ type Wurfl struct {
 	Wurfl                       C.wurfl_handle
 	ImportantHeaderNames        []string
 	importantHeaderCStringNames []*C.char
+	importantHeaderCStringMap   map[string]*C.char
 	capsCStringcache            map[string]*C.char
 }
 
@@ -319,6 +320,12 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 		C.wurfl_important_header_enumerator_move_next(ihe)
 	}
 
+	// build a map-based cache for important header names, keyed by lowercase for case-insensitive lookup
+	w.importantHeaderCStringMap = make(map[string]*C.char, len(w.ImportantHeaderNames))
+	for i, name := range w.ImportantHeaderNames {
+		w.importantHeaderCStringMap[strings.ToLower(name)] = w.importantHeaderCStringNames[i]
+	}
+
 	// initialize caps/vcaps CString cache for faster calls to libwurfl
 
 	caps := w.GetAllCaps()
@@ -395,6 +402,12 @@ func (w *Wurfl) SetAttr(attr int, value int) error {
 			C.wurfl_important_header_enumerator_move_next(ihe)
 		}
 		C.wurfl_important_header_enumerator_destroy(ihe)
+
+		// rebuild the map-based cache for important header names
+		w.importantHeaderCStringMap = make(map[string]*C.char, len(w.ImportantHeaderNames))
+		for i, name := range w.ImportantHeaderNames {
+			w.importantHeaderCStringMap[strings.ToLower(name)] = w.importantHeaderCStringNames[i]
+		}
 	}
 
 	return nil
@@ -755,13 +768,15 @@ func (w *Wurfl) LookupWithImportantHeaderMap(IHMap map[string]string) (*Device, 
 	defer C.wurfl_important_header_destroy(cih)
 	// fill it with IHMap entries
 	for importantHeaderName, headerValue := range IHMap {
-		// create C strings from header name and value
-		cheaderName := C.CString(importantHeaderName)
+		// use cached C string for header name (case-insensitive lookup)
+		cheaderName, found := w.importantHeaderCStringMap[strings.ToLower(importantHeaderName)]
+		if !found {
+			continue
+		}
 		cheaderValue := C.CString(headerValue)
 
-		// add this header to WURFL importtant headers object
+		// add this header to WURFL important headers object
 		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
-		C.free(unsafe.Pointer(cheaderName))
 		C.free(unsafe.Pointer(cheaderValue))
 	}
 
@@ -793,16 +808,16 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	defer C.wurfl_important_header_destroy(cih)
 
 	// fill it with IHMap entries
-
-	// fill it with IHMap entries
 	for importantHeaderName, headerValue := range IHMap {
-		// create C strings from header name and value
-		cheaderName := C.CString(importantHeaderName)
+		// use cached C string for header name (case-insensitive lookup)
+		cheaderName, found := w.importantHeaderCStringMap[strings.ToLower(importantHeaderName)]
+		if !found {
+			continue
+		}
 		cheaderValue := C.CString(headerValue)
 
-		// add this header to WURFL importtant headers object
+		// add this header to WURFL important headers object
 		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
-		C.free(unsafe.Pointer(cheaderName))
 		C.free(unsafe.Pointer(cheaderValue))
 	}
 
