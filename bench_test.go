@@ -1104,7 +1104,7 @@ func TestP99_LookupUserAgent_NoCache(t *testing.T) {
 // used to prevent compiler optimizations in the BenchmarkStringToLower
 var sinkString string
 
-func BenchmarkStringToLower(b *testing.B) {
+func Benchmark_StringToLower(b *testing.B) {
 	headerName := "Sec-CH-UA-Platform-Version"
 
 	b.ResetTimer()
