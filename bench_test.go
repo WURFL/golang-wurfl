@@ -567,6 +567,35 @@ func Benchmark_LookupWithImportantHeaderMap_Cache(b *testing.B) {
 	b.StopTimer()
 }
 
+// Benchmark_LookupWithImportantHeaderMap_AllSecChUa_Cache
+func Benchmark_LookupWithImportantHeaderMap_AllSecChUa_Cache(b *testing.B) {
+	wengine := fixtureCreateEngine(nil)
+	defer wengine.Destroy()
+	UserAgent := "Mozilla/5.0 (Linux; Android 11; SM-M315F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36"
+
+	IHMap := make(map[string]string)
+	IHMap["Accept-Encoding"] = "gzip, br"
+	IHMap["X-Requested-With"] = "com.instagram.android"
+	IHMap["User-Agent"] = UserAgent
+	IHMap["Sec-CH-UA"] = "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+	IHMap["Sec-CH-UA-Full-Version"] = "90.0.4430.91"
+	IHMap["Sec-CH-UA-Platform"] = "Android"
+	IHMap["Sec-CH-UA-Platform-Version"] = "11"
+	IHMap["Sec-CH-UA-Model"] = "SM-M315F"
+	IHMap["Sec-CH-UA-Mobile"] = "?1"
+	IHMap["Sec-CH-UA-Arch"] = "x86"
+	IHMap["Sec-Ch-Ua-Full-Version-List"] = "\"Chromium\";v=\"146.0.7680.157\", \"Not-A.Brand\";v=\"24.0.0.0\", \"Android WebView\";v=\"146.0.7680.157\""
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+
+		device, _ := wengine.LookupWithImportantHeaderMap(IHMap)
+		device.Destroy()
+	}
+
+	b.StopTimer()
+}
+
 // Benchmark_LookupWithImportantHeaderMap_NoCache
 func Benchmark_LookupWithImportantHeaderMap_NoCache(b *testing.B) {
 	wengine := fixtureCreateEngineCachesize(nil, "")
@@ -580,7 +609,6 @@ func Benchmark_LookupWithImportantHeaderMap_NoCache(b *testing.B) {
 	IHMap["Sec-CH-UA-Platform"] = "Android"
 	IHMap["Sec-CH-UA-Platform-Version"] = "11"
 	IHMap["Sec-CH-UA-Model"] = "SM-M315F"
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 
