@@ -3,6 +3,7 @@ package wurfl_test
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -1098,4 +1099,17 @@ func TestP99_LookupUserAgent_NoCache(t *testing.T) {
 	t.Logf("P95:  %v", p95)
 	t.Logf("P99:  %v", p99)
 	t.Logf("P100: %v", p100)
+}
+
+// used to prevent compiler optimizations in the BenchmarkStringToLower
+var sinkString string
+
+func BenchmarkStringToLower(b *testing.B) {
+	headerName := "Sec-CH-UA-Platform-Version"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sinkString = strings.ToLower(headerName)
+	}
+	b.StopTimer()
 }
