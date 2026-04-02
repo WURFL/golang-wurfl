@@ -1008,14 +1008,15 @@ func Benchmark_TrieGet(b *testing.B) {
 	})
 }
 
-// Benchmark_HeaderLookupStrategies compares four strategies for case-insensitive
+// Benchmark_HeaderLookupStrategies compares two strategies for case-insensitive
 // header name lookup using the same set of 15 WURFL important header names.
 //
 // Strategies:
 //   - Trie: | 0x20 byte folding per byte, O(len(key)), 0 allocs
 //   - Map: strings.ToLower + map access, 1 alloc (unavoidable for hashing)
-//   - SequentialEqualFold: linear scan with strings.EqualFold, 0 allocs
-//   - BinarySearchFold: sort.Search with | 0x20 comparator + EqualFold confirm, 0 allocs
+//
+// Setup (building tries/maps) is done before b.Run, so it's excluded from timing.
+// Each sub-benchmark gets its own timer.
 func Benchmark_HeaderLookupStrategies(b *testing.B) {
 	headers := []string{
 		"Accept-Encoding", "CAST-DEVICE-CAPABILITIES", "Device-Stock-UA",
@@ -1027,8 +1028,6 @@ func Benchmark_HeaderLookupStrategies(b *testing.B) {
 
 	trieGet := wurfl.BenchmarkableTrieGet(headers)
 	mapGet := wurfl.BenchmarkableMapGet(headers)
-	seqGet := wurfl.BenchmarkableSequentialEqualFoldGet(headers)
-	bsfGet := wurfl.BenchmarkableBinarySearchFoldGet(headers)
 
 	keys := []struct {
 		name string
@@ -1048,16 +1047,6 @@ func Benchmark_HeaderLookupStrategies(b *testing.B) {
 		b.Run("Map/"+k.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				benchSink = mapGet(k.key)
-			}
-		})
-		b.Run("SequentialEqualFold/"+k.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				benchSink = seqGet(k.key)
-			}
-		})
-		b.Run("BinarySearchFold/"+k.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				benchSink = bsfGet(k.key)
 			}
 		})
 	}
