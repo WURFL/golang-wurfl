@@ -571,6 +571,92 @@ func Test_LookupDeviceIDWithImportantHeaderMapCaseInsensitive(t *testing.T) {
 	deviceIHM.Destroy()
 }
 
+// Test_LookupWithImportantHeaderMap_CaseConsistency verifies that the trie-based
+// case-insensitive header name lookup produces identical detection results regardless
+// of the casing used for header names. The same header values are submitted with
+// multiple case variations, and all lookups must return the same device ID and capabilities.
+func Test_LookupWithImportantHeaderMap_CaseConsistency(t *testing.T) {
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	// header values shared across all case variants
+	headerValues := map[string]string{
+		"User-Agent":                 "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+		"Sec-CH-UA":                  `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
+		"Sec-CH-UA-Full-Version-List": `"Chromium";v="122.0.6261.64", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="122.0.6261.64"`,
+		"Sec-CH-UA-Mobile":           "?1",
+		"Sec-CH-UA-Model":            "SM-S928B",
+		"Sec-CH-UA-Platform":         "Android",
+		"Sec-CH-UA-Platform-Version": "14.0.0",
+	}
+
+	// different case variants for the same header names
+	caseVariants := []map[string]string{
+		// canonical case
+		headerValues,
+		// all lowercase
+		{
+			"user-agent":                  headerValues["User-Agent"],
+			"sec-ch-ua":                   headerValues["Sec-CH-UA"],
+			"sec-ch-ua-full-version-list": headerValues["Sec-CH-UA-Full-Version-List"],
+			"sec-ch-ua-mobile":            headerValues["Sec-CH-UA-Mobile"],
+			"sec-ch-ua-model":             headerValues["Sec-CH-UA-Model"],
+			"sec-ch-ua-platform":          headerValues["Sec-CH-UA-Platform"],
+			"sec-ch-ua-platform-version":  headerValues["Sec-CH-UA-Platform-Version"],
+		},
+		// all uppercase
+		{
+			"USER-AGENT":                  headerValues["User-Agent"],
+			"SEC-CH-UA":                   headerValues["Sec-CH-UA"],
+			"SEC-CH-UA-FULL-VERSION-LIST": headerValues["Sec-CH-UA-Full-Version-List"],
+			"SEC-CH-UA-MOBILE":            headerValues["Sec-CH-UA-Mobile"],
+			"SEC-CH-UA-MODEL":             headerValues["Sec-CH-UA-Model"],
+			"SEC-CH-UA-PLATFORM":          headerValues["Sec-CH-UA-Platform"],
+			"SEC-CH-UA-PLATFORM-VERSION":  headerValues["Sec-CH-UA-Platform-Version"],
+		},
+		// mixed case
+		{
+			"uSeR-aGeNt":                  headerValues["User-Agent"],
+			"sEc-cH-uA":                  headerValues["Sec-CH-UA"],
+			"sEc-cH-uA-fUlL-vErSiOn-lIsT": headerValues["Sec-CH-UA-Full-Version-List"],
+			"sEc-cH-uA-mObIlE":           headerValues["Sec-CH-UA-Mobile"],
+			"sEc-cH-uA-mOdEl":            headerValues["Sec-CH-UA-Model"],
+			"sEc-cH-uA-pLaTfOrM":         headerValues["Sec-CH-UA-Platform"],
+			"sEc-cH-uA-pLaTfOrM-vErSiOn": headerValues["Sec-CH-UA-Platform-Version"],
+		},
+	}
+
+	// perform lookup with the canonical case to get the reference result
+	refDevice, err := wengine.LookupWithImportantHeaderMap(caseVariants[0])
+	require.NoError(t, err)
+	refDeviceID, _ := refDevice.GetDeviceID()
+	refModelName, _ := refDevice.GetStaticCap("model_name")
+	refBrowser, _ := refDevice.GetVirtualCap("advertised_browser")
+	refDevice.Destroy()
+
+	caseLabels := []string{"canonical", "lowercase", "uppercase", "mixed"}
+
+	// verify that all case variants produce identical results
+	for i := 1; i < len(caseVariants); i++ {
+		device, err := wengine.LookupWithImportantHeaderMap(caseVariants[i])
+		require.NoErrorf(t, err, "case variant %s: lookup error", caseLabels[i])
+
+		deviceID, _ := device.GetDeviceID()
+		modelName, _ := device.GetStaticCap("model_name")
+		browser, _ := device.GetVirtualCap("advertised_browser")
+
+		assert.Equalf(t, refDeviceID, deviceID,
+			"case variant %s: device ID mismatch", caseLabels[i])
+		assert.Equalf(t, refModelName, modelName,
+			"case variant %s: model_name mismatch", caseLabels[i])
+		assert.Equalf(t, refBrowser, browser,
+			"case variant %s: advertised_browser mismatch", caseLabels[i])
+
+		device.Destroy()
+	}
+}
+
 func Test_LookupDeviceIDWithRequest(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)

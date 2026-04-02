@@ -128,17 +128,35 @@ const (
 	HeaderQualityFull HeaderQuality = C.WURFL_ENUM_UACH_FULL
 )
 
-// headerTrie is a case-insensitive trie for ASCII header name lookup.
-// It avoids strings.ToLower allocations by folding case per-byte during traversal.
+// headerTrie is a case-insensitive trie (prefix tree) for mapping HTTP header names
+// to their pre-allocated C string counterparts.
+//
+// Why a trie: LookupWithImportantHeaderMap receives a map[string]string where keys are
+// header names in arbitrary case (e.g. "User-Agent", "user-agent", "USER-AGENT").
+// We need to match them against WURFL's known important header names case-insensitively.
+// The trie avoids this by folding case inline during traversal using a bit trick,
+// achieving O(len(key)) lookup with zero allocations.
+//
+// How case folding works: each byte is OR-ed with 0x20 (bit 5), which converts ASCII
+// uppercase letters to lowercase (e.g. 'A' 0x41 -> 'a' 0x61) without affecting lowercase
+// letters, digits, or hyphens — the only characters that appear in HTTP header names.
+// Both set() and get() apply the same folding, so "Sec-CH-UA" and "sec-ch-ua" follow
+// the same path in the trie.
+//
+// The stored value at each terminal node is a *C.char pointer to a C string allocated once
+// at engine initialization. This means get() returns a ready-to-use C string directly,
+// avoiding a C.CString() call (and its cgo malloc overhead) on every lookup.
 type headerTrie struct {
 	children [128]*headerTrie
-	value    *C.char // non-nil at terminal nodes
+	value    *C.char // non-nil at terminal nodes, points to pre-allocated C string
 }
 
+// set inserts a header name into the trie, associating it with a pre-allocated C string.
+// Called once per important header at engine initialization.
 func (t *headerTrie) set(key string, val *C.char) {
 	node := t
 	for i := 0; i < len(key); i++ {
-		c := key[i] | 0x20 // ASCII lowercase
+		c := key[i] | 0x20 // fold to lowercase: safe for [A-Za-z0-9\-]
 		if node.children[c] == nil {
 			node.children[c] = &headerTrie{}
 		}
@@ -147,10 +165,12 @@ func (t *headerTrie) set(key string, val *C.char) {
 	node.value = val
 }
 
+// get performs a case-insensitive lookup and returns the pre-allocated *C.char for the
+// header name, or (nil, false) if the key is not a known important header.
 func (t *headerTrie) get(key string) (*C.char, bool) {
 	node := t
 	for i := 0; i < len(key); i++ {
-		c := key[i] | 0x20
+		c := key[i] | 0x20 // same case folding as set()
 		node = node.children[c]
 		if node == nil {
 			return nil, false
