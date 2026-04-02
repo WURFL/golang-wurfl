@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -1317,6 +1318,113 @@ func GoStringToCStringAndFree(capname string) *C.char {
 // GoStringToCStringUsingMap returns a C string pointer for the given capability name using a cached map.
 func (w *Wurfl) GoStringToCStringUsingMap(capname string) *C.char {
 	return w.capsCStringcache[capname]
+}
+
+// BenchmarkableTrieGet creates an isolated headerTrie populated with the given header names
+// and returns a function that performs a case-insensitive get() on the trie.
+// Returns unsafe.Pointer to the *C.char on match (nil if not found), reflecting the real
+// use case where the lookup must return a ready-to-use C string pointer.
+func BenchmarkableTrieGet(headerNames []string) func(string) unsafe.Pointer {
+	var trie headerTrie
+	for _, name := range headerNames {
+		cname := C.CString(name)
+		trie.set(name, cname)
+	}
+	return func(key string) unsafe.Pointer {
+		cname, found := trie.get(key)
+		if !found {
+			return nil
+		}
+		return unsafe.Pointer(cname)
+	}
+}
+
+// BenchmarkableMapGet creates a map[string]*C.char keyed by pre-lowercased header names,
+// mirroring importantHeaderCStringMap from the ihm-lookup-opt branch.
+// Lookup does strings.ToLower(key) + map access. The ToLower allocation is unavoidable
+// because map lookup requires an exact key match for hashing.
+// Returns unsafe.Pointer to the *C.char on match (nil if not found).
+func BenchmarkableMapGet(headerNames []string) func(string) unsafe.Pointer {
+	m := make(map[string]*C.char, len(headerNames))
+	for _, name := range headerNames {
+		cname := C.CString(name)
+		m[strings.ToLower(name)] = cname
+	}
+	return func(key string) unsafe.Pointer {
+		cname, found := m[strings.ToLower(key)]
+		if !found {
+			return nil
+		}
+		return unsafe.Pointer(cname)
+	}
+}
+
+// BenchmarkableSequentialEqualFoldGet creates a slice of header names paired with their
+// pre-allocated *C.char pointers. Lookup iterates sequentially using strings.EqualFold
+// and returns the corresponding *C.char. Zero allocations.
+func BenchmarkableSequentialEqualFoldGet(headerNames []string) func(string) unsafe.Pointer {
+	type entry struct {
+		name  string
+		cname *C.char
+	}
+	entries := make([]entry, len(headerNames))
+	for i, name := range headerNames {
+		entries[i] = entry{name, C.CString(name)}
+	}
+	return func(key string) unsafe.Pointer {
+		for _, e := range entries {
+			if strings.EqualFold(e.name, key) {
+				return unsafe.Pointer(e.cname)
+			}
+		}
+		return nil
+	}
+}
+
+// BenchmarkableBinarySearchFoldGet creates a sorted slice of pre-lowercased header names
+// paired with their pre-allocated *C.char pointers. Lookup uses sort.Search with a | 0x20
+// byte-folding comparator, then confirms with strings.EqualFold and returns the *C.char.
+// Zero allocations.
+func BenchmarkableBinarySearchFoldGet(headerNames []string) func(string) unsafe.Pointer {
+	type entry struct {
+		lower string
+		cname *C.char
+	}
+	entries := make([]entry, len(headerNames))
+	for i, name := range headerNames {
+		entries[i] = entry{strings.ToLower(name), C.CString(name)}
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].lower < entries[j].lower
+	})
+	return func(key string) unsafe.Pointer {
+		i := sort.Search(len(entries), func(mid int) bool {
+			return asciiCmpFoldGe(entries[mid].lower, key)
+		})
+		if i >= len(entries) {
+			return nil
+		}
+		if !strings.EqualFold(entries[i].lower, key) {
+			return nil
+		}
+		return unsafe.Pointer(entries[i].cname)
+	}
+}
+
+// asciiCmpFoldGe returns true if a >= b in case-insensitive ASCII order.
+// a is expected to be pre-lowered; b is folded inline with | 0x20.
+func asciiCmpFoldGe(a, b string) bool {
+	minLen := len(a)
+	if len(b) < minLen {
+		minLen = len(b)
+	}
+	for i := 0; i < minLen; i++ {
+		cb := b[i] | 0x20
+		if a[i] != cb {
+			return a[i] >= cb
+		}
+	}
+	return len(a) >= len(b)
 }
 
 // CompareVersions Returns 0 if v1 == v2, -1 if v1 < v2, and 1 if v1 > v2.

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	wurfl "github.com/WURFL/golang-wurfl"
 	"github.com/stretchr/testify/assert"
@@ -969,6 +970,96 @@ func Benchmark_GetAllDeviceIds(b *testing.B) {
 func Benchmark_CStringCFree(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		wurfl.GoStringToCStringAndFree("capability")
+	}
+}
+
+// sink prevents the compiler from optimizing away benchmark results
+var benchSink unsafe.Pointer
+
+func Benchmark_TrieGet(b *testing.B) {
+	headers := []string{
+		"Accept-Encoding", "CAST-DEVICE-CAPABILITIES", "Device-Stock-UA",
+		"Sec-CH-UA", "Sec-CH-UA-Arch", "Sec-CH-UA-Full-Version",
+		"Sec-CH-UA-Full-Version-List", "Sec-CH-UA-Mobile", "Sec-CH-UA-Model",
+		"Sec-CH-UA-Platform", "Sec-CH-UA-Platform-Version", "User-Agent",
+		"X-OperaMini-Phone-UA", "X-Requested-With", "X-UCBrowser-Device-UA",
+	}
+	trieGet := wurfl.BenchmarkableTrieGet(headers)
+
+	b.Run("ExactCase", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("Sec-CH-UA-Full-Version-List")
+		}
+	})
+	b.Run("MixedCase", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("sEc-cH-uA-fUlL-vErSiOn-LiSt")
+		}
+	})
+	b.Run("NotFound", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("X-Not-A-Real-Header")
+		}
+	})
+	b.Run("ShortKey", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("User-Agent")
+		}
+	})
+}
+
+// Benchmark_HeaderLookupStrategies compares four strategies for case-insensitive
+// header name lookup using the same set of 15 WURFL important header names.
+//
+// Strategies:
+//   - Trie: | 0x20 byte folding per byte, O(len(key)), 0 allocs
+//   - Map: strings.ToLower + map access, 1 alloc (unavoidable for hashing)
+//   - SequentialEqualFold: linear scan with strings.EqualFold, 0 allocs
+//   - BinarySearchFold: sort.Search with | 0x20 comparator + EqualFold confirm, 0 allocs
+func Benchmark_HeaderLookupStrategies(b *testing.B) {
+	headers := []string{
+		"Accept-Encoding", "CAST-DEVICE-CAPABILITIES", "Device-Stock-UA",
+		"Sec-CH-UA", "Sec-CH-UA-Arch", "Sec-CH-UA-Full-Version",
+		"Sec-CH-UA-Full-Version-List", "Sec-CH-UA-Mobile", "Sec-CH-UA-Model",
+		"Sec-CH-UA-Platform", "Sec-CH-UA-Platform-Version", "User-Agent",
+		"X-OperaMini-Phone-UA", "X-Requested-With", "X-UCBrowser-Device-UA",
+	}
+
+	trieGet := wurfl.BenchmarkableTrieGet(headers)
+	mapGet := wurfl.BenchmarkableMapGet(headers)
+	seqGet := wurfl.BenchmarkableSequentialEqualFoldGet(headers)
+	bsfGet := wurfl.BenchmarkableBinarySearchFoldGet(headers)
+
+	keys := []struct {
+		name string
+		key  string
+	}{
+		{"LongKey_MixedCase", "sEc-cH-uA-fUlL-vErSiOn-LiSt"},
+		{"ShortKey_MixedCase", "uSeR-aGeNt"},
+		{"NotFound", "X-Not-A-Real-Header"},
+	}
+
+	for _, k := range keys {
+		b.Run("Trie/"+k.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				benchSink = trieGet(k.key)
+			}
+		})
+		b.Run("Map/"+k.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				benchSink = mapGet(k.key)
+			}
+		})
+		b.Run("SequentialEqualFold/"+k.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				benchSink = seqGet(k.key)
+			}
+		})
+		b.Run("BinarySearchFold/"+k.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				benchSink = bsfGet(k.key)
+			}
+		})
 	}
 }
 
