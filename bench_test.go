@@ -1204,3 +1204,16 @@ func Benchmark_StringToLower(b *testing.B) {
 	}
 	b.StopTimer()
 }
+
+var sinkBool bool
+
+func Benchmark_StringEqualFold(b *testing.B) {
+	headerName := "Sec-CH-UA-Platform-Version"
+	headerNameLower := "sec-ch-ua-platform-version"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sinkBool = strings.EqualFold(headerName, headerNameLower)
+	}
+	b.StopTimer()
+}
