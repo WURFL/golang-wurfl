@@ -1382,8 +1382,8 @@ func BenchmarkableSequentialEqualFoldGet(headerNames []string) func(string) unsa
 }
 
 // BenchmarkableBinarySearchFoldGet creates a sorted slice of pre-lowercased header names
-// paired with their pre-allocated *C.char pointers. Lookup uses sort.Search with a | 0x20
-// byte-folding comparator, then confirms with strings.EqualFold and returns the *C.char.
+// paired with their pre-allocated *C.char pointers. Lookup uses a custom inline binary search
+// with | 0x20 byte-folding comparison, avoiding sort.Search closure overhead.
 // Zero allocations.
 func BenchmarkableBinarySearchFoldGet(headerNames []string) func(string) unsafe.Pointer {
 	type entry struct {
@@ -1398,33 +1398,66 @@ func BenchmarkableBinarySearchFoldGet(headerNames []string) func(string) unsafe.
 		return entries[i].lower < entries[j].lower
 	})
 	return func(key string) unsafe.Pointer {
-		i := sort.Search(len(entries), func(mid int) bool {
-			return asciiCmpFoldGe(entries[mid].lower, key)
-		})
-		if i >= len(entries) {
-			return nil
+		lo, hi := 0, len(entries)
+		for lo < hi {
+			mid := lo + (hi-lo)/2
+			// compare entries[mid].lower (pre-lowered) against key (arbitrary case)
+			// fold key bytes with | 0x20 inline
+			cmp := asciiCmpFold(entries[mid].lower, key)
+			if cmp == 0 {
+				return unsafe.Pointer(entries[mid].cname)
+			}
+			if cmp < 0 {
+				lo = mid + 1
+			} else {
+				hi = mid
+			}
 		}
-		if !strings.EqualFold(entries[i].lower, key) {
-			return nil
-		}
-		return unsafe.Pointer(entries[i].cname)
+		return nil
 	}
 }
 
-// asciiCmpFoldGe returns true if a >= b in case-insensitive ASCII order.
-// a is expected to be pre-lowered; b is folded inline with | 0x20.
-func asciiCmpFoldGe(a, b string) bool {
-	minLen := len(a)
-	if len(b) < minLen {
-		minLen = len(b)
+// asciiCmpFold performs a case-insensitive comparison of two ASCII strings for use
+// in binary search over a sorted slice of pre-lowercased header names.
+//
+// entryLower must be pre-lowercased (as stored in the sorted slice).
+// key can be in any case — only uppercase ASCII letters (A-Z) are folded to lowercase
+// via | 0x20, which is safe because it only affects bytes in the 0x41-0x5A range.
+// Non-letter characters (digits, hyphens, etc.) are compared as-is.
+//
+// Returns -1 if entryLower < key, 0 if equal, +1 if entryLower > key.
+func asciiCmpFold(entryLower string, key string) int {
+	// compare up to the length of the shorter string
+	n := len(entryLower)
+	if len(key) < n {
+		n = len(key)
 	}
-	for i := 0; i < minLen; i++ {
-		cb := b[i] | 0x20
-		if a[i] != cb {
-			return a[i] >= cb
+
+	for i := 0; i < n; i++ {
+		a := entryLower[i] // already lowercase
+		b := key[i]
+
+		// fold only uppercase ASCII letters to lowercase
+		if b >= 'A' && b <= 'Z' {
+			b |= 0x20
+		}
+
+		// if bytes differ after folding, we have our ordering
+		if a != b {
+			if a < b {
+				return -1
+			}
+			return 1
 		}
 	}
-	return len(a) >= len(b)
+
+	// all compared bytes are equal — the shorter string is "less than"
+	if len(entryLower) < len(key) {
+		return -1
+	} else if len(entryLower) > len(key) {
+		return 1
+	}
+	return 0
 }
 
 // CompareVersions Returns 0 if v1 == v2, -1 if v1 < v2, and 1 if v1 > v2.
