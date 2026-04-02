@@ -611,6 +611,10 @@ func Benchmark_LookupWithImportantHeaderMap_NoCache(b *testing.B) {
 	IHMap["Sec-CH-UA-Platform"] = "Android"
 	IHMap["Sec-CH-UA-Platform-Version"] = "11"
 	IHMap["Sec-CH-UA-Model"] = "SM-M315F"
+<<<<<<< ihm-lookup-opt-trie
+=======
+
+>>>>>>> feat/perf-enh
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 
