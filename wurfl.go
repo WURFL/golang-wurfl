@@ -846,6 +846,7 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	d.capsCStringcache = w.capsCStringcache
 
 	cDeviceID := C.CString(DeviceID)
+	defer C.free(unsafe.Pointer(cDeviceID))
 
 	// create important headers object to pass to lookup
 
@@ -867,7 +868,6 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	}
 
 	d.Device = C.wurfl_get_device_with_important_header(w.Wurfl, cDeviceID, cih)
-	C.free(unsafe.Pointer(cDeviceID))
 	if d.Device == nil {
 		return nil, checkHandleError(w.Wurfl)
 	}
