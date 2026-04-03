@@ -3,8 +3,10 @@ package wurfl_test
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	wurfl "github.com/WURFL/golang-wurfl"
 	"github.com/stretchr/testify/assert"
@@ -609,7 +611,6 @@ func Benchmark_LookupWithImportantHeaderMap_NoCache(b *testing.B) {
 	IHMap["Sec-CH-UA-Platform"] = "Android"
 	IHMap["Sec-CH-UA-Platform-Version"] = "11"
 	IHMap["Sec-CH-UA-Model"] = "SM-M315F"
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 
@@ -972,6 +973,85 @@ func Benchmark_CStringCFree(b *testing.B) {
 	}
 }
 
+// sink prevents the compiler from optimizing away benchmark results
+var benchSink unsafe.Pointer
+
+func Benchmark_TrieGet(b *testing.B) {
+	headers := []string{
+		"Accept-Encoding", "CAST-DEVICE-CAPABILITIES", "Device-Stock-UA",
+		"Sec-CH-UA", "Sec-CH-UA-Arch", "Sec-CH-UA-Full-Version",
+		"Sec-CH-UA-Full-Version-List", "Sec-CH-UA-Mobile", "Sec-CH-UA-Model",
+		"Sec-CH-UA-Platform", "Sec-CH-UA-Platform-Version", "User-Agent",
+		"X-OperaMini-Phone-UA", "X-Requested-With", "X-UCBrowser-Device-UA",
+	}
+	trieGet := wurfl.BenchmarkableTrieGet(headers)
+
+	b.Run("ExactCase", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("Sec-CH-UA-Full-Version-List")
+		}
+	})
+	b.Run("MixedCase", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("sEc-cH-uA-fUlL-vErSiOn-LiSt")
+		}
+	})
+	b.Run("NotFound", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("X-Not-A-Real-Header")
+		}
+	})
+	b.Run("ShortKey", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			benchSink = trieGet("User-Agent")
+		}
+	})
+}
+
+// Benchmark_HeaderLookupStrategies compares two strategies for case-insensitive
+// header name lookup using the same set of 15 WURFL important header names.
+//
+// Strategies:
+//   - Trie: | 0x20 byte folding per byte, O(len(key)), 0 allocs
+//   - Map: strings.ToLower + map access, 1 alloc (unavoidable for hashing)
+//
+// Setup (building tries/maps) is done before b.Run, so it's excluded from timing.
+// Each sub-benchmark gets its own timer.
+func Benchmark_HeaderLookupStrategies(b *testing.B) {
+	headers := []string{
+		"Accept-Encoding", "CAST-DEVICE-CAPABILITIES", "Device-Stock-UA",
+		"Sec-CH-UA", "Sec-CH-UA-Arch", "Sec-CH-UA-Full-Version",
+		"Sec-CH-UA-Full-Version-List", "Sec-CH-UA-Mobile", "Sec-CH-UA-Model",
+		"Sec-CH-UA-Platform", "Sec-CH-UA-Platform-Version", "User-Agent",
+		"X-OperaMini-Phone-UA", "X-Requested-With", "X-UCBrowser-Device-UA",
+	}
+
+	trieGet := wurfl.BenchmarkableTrieGet(headers)
+	mapGet := wurfl.BenchmarkableMapGet(headers)
+
+	keys := []struct {
+		name string
+		key  string
+	}{
+		{"LongKey_MixedCase", "sEc-cH-uA-fUlL-vErSiOn-LiSt"},
+		{"ShortKey_MixedCase", "uSeR-aGeNt"},
+		{"NotFound", "X-Not-A-Real-Header"},
+	}
+
+	for _, k := range keys {
+		b.Run("Trie/"+k.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				benchSink = trieGet(k.key)
+			}
+		})
+		b.Run("Map/"+k.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				benchSink = mapGet(k.key)
+			}
+		})
+	}
+}
+
 func Benchmark_MapAccess(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
@@ -1099,4 +1179,30 @@ func TestP99_LookupUserAgent_NoCache(t *testing.T) {
 	t.Logf("P95:  %v", p95)
 	t.Logf("P99:  %v", p99)
 	t.Logf("P100: %v", p100)
+}
+
+// used to prevent compiler optimizations in the BenchmarkStringToLower
+var sinkString string
+
+func Benchmark_StringToLower(b *testing.B) {
+	headerName := "Sec-CH-UA-Platform-Version"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sinkString = strings.ToLower(headerName)
+	}
+	b.StopTimer()
+}
+
+var sinkBool bool
+
+func Benchmark_StringEqualFold(b *testing.B) {
+	headerName := "Sec-CH-UA-Platform-Version"
+	headerNameLower := "sec-ch-ua-platform-version"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sinkBool = strings.EqualFold(headerName, headerNameLower)
+	}
+	b.StopTimer()
 }

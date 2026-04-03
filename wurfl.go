@@ -128,11 +128,63 @@ const (
 	HeaderQualityFull HeaderQuality = C.WURFL_ENUM_UACH_FULL
 )
 
+// headerTrie is a case-insensitive trie (prefix tree) for mapping HTTP header names
+// to their pre-allocated C string counterparts.
+//
+// Why a trie: LookupWithImportantHeaderMap receives a map[string]string where keys are
+// header names in arbitrary case (e.g. "User-Agent", "user-agent", "USER-AGENT").
+// We need to match them against WURFL's known important header names case-insensitively.
+// The trie avoids this by folding case inline during traversal using a bit trick,
+// achieving O(len(key)) lookup with zero allocations.
+//
+// How case folding works: each byte is OR-ed with 0x20 (bit 5), which converts ASCII
+// uppercase letters to lowercase (e.g. 'A' 0x41 -> 'a' 0x61) without affecting lowercase
+// letters, digits, or hyphens — the only characters that appear in HTTP header names.
+// Both set() and get() apply the same folding, so "Sec-CH-UA" and "sec-ch-ua" follow
+// the same path in the trie.
+//
+// The stored value at each terminal node is a *C.char pointer to a C string allocated once
+// at engine initialization. This means get() returns a ready-to-use C string directly,
+// avoiding a C.CString() call (and its cgo malloc overhead) on every lookup.
+type headerTrie struct {
+	children [128]*headerTrie
+	value    *C.char // non-nil at terminal nodes, points to pre-allocated C string
+}
+
+// set inserts a header name into the trie, associating it with a pre-allocated C string.
+// Called once per important header at engine initialization.
+func (t *headerTrie) set(key string, val *C.char) {
+	node := t
+	for i := 0; i < len(key); i++ {
+		c := key[i] | 0x20 // fold to lowercase: safe for [A-Za-z0-9\-]
+		if node.children[c] == nil {
+			node.children[c] = &headerTrie{}
+		}
+		node = node.children[c]
+	}
+	node.value = val
+}
+
+// get performs a case-insensitive lookup and returns the pre-allocated *C.char for the
+// header name, or (nil, false) if the key is not a known important header.
+func (t *headerTrie) get(key string) (*C.char, bool) {
+	node := t
+	for i := 0; i < len(key); i++ {
+		c := key[i] | 0x20 // same case folding as set()
+		node = node.children[c]
+		if node == nil {
+			return nil, false
+		}
+	}
+	return node.value, node.value != nil
+}
+
 // Wurfl represents internal wurfl infuze handle
 type Wurfl struct {
 	Wurfl                       C.wurfl_handle
 	ImportantHeaderNames        []string
 	importantHeaderCStringNames []*C.char
+	importantHeaderTrie         headerTrie
 	capsCStringcache            map[string]*C.char
 }
 
@@ -319,6 +371,12 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 		C.wurfl_important_header_enumerator_move_next(ihe)
 	}
 
+	// build a trie-based cache for important header names, for case-insensitive lookup without allocation
+	w.importantHeaderTrie = headerTrie{}
+	for i, name := range w.ImportantHeaderNames {
+		w.importantHeaderTrie.set(name, w.importantHeaderCStringNames[i])
+	}
+
 	// initialize caps/vcaps CString cache for faster calls to libwurfl
 
 	caps := w.GetAllCaps()
@@ -395,6 +453,12 @@ func (w *Wurfl) SetAttr(attr int, value int) error {
 			C.wurfl_important_header_enumerator_move_next(ihe)
 		}
 		C.wurfl_important_header_enumerator_destroy(ihe)
+
+		// rebuild the trie-based cache for important header names
+		w.importantHeaderTrie = headerTrie{}
+		for i, name := range w.ImportantHeaderNames {
+			w.importantHeaderTrie.set(name, w.importantHeaderCStringNames[i])
+		}
 	}
 
 	return nil
@@ -753,15 +817,14 @@ func (w *Wurfl) LookupWithImportantHeaderMap(IHMap map[string]string) (*Device, 
 		return nil, checkHandleError(w.Wurfl)
 	}
 	defer C.wurfl_important_header_destroy(cih)
-	// fill it with IHMap entries
+	// fill it with IHMap entries, using trie for case-insensitive header name lookup
 	for importantHeaderName, headerValue := range IHMap {
-		// create C strings from header name and value
-		cheaderName := C.CString(importantHeaderName)
+		cheaderName, found := w.importantHeaderTrie.get(importantHeaderName)
+		if !found {
+			continue
+		}
 		cheaderValue := C.CString(headerValue)
-
-		// add this header to WURFL importtant headers object
 		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
-		C.free(unsafe.Pointer(cheaderName))
 		C.free(unsafe.Pointer(cheaderValue))
 	}
 
@@ -792,17 +855,14 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	}
 	defer C.wurfl_important_header_destroy(cih)
 
-	// fill it with IHMap entries
-
-	// fill it with IHMap entries
+	// fill it with IHMap entries, using trie for case-insensitive header name lookup
 	for importantHeaderName, headerValue := range IHMap {
-		// create C strings from header name and value
-		cheaderName := C.CString(importantHeaderName)
+		cheaderName, found := w.importantHeaderTrie.get(importantHeaderName)
+		if !found {
+			continue
+		}
 		cheaderValue := C.CString(headerValue)
-
-		// add this header to WURFL importtant headers object
 		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
-		C.free(unsafe.Pointer(cheaderName))
 		C.free(unsafe.Pointer(cheaderValue))
 	}
 
@@ -1256,6 +1316,47 @@ func GoStringToCStringAndFree(capname string) *C.char {
 func (w *Wurfl) GoStringToCStringUsingMap(capname string) *C.char {
 	return w.capsCStringcache[capname]
 }
+
+// BenchmarkableTrieGet creates an isolated headerTrie populated with the given header names
+// and returns a function that performs a case-insensitive get() on the trie.
+// Returns unsafe.Pointer to the *C.char on match (nil if not found), reflecting the real
+// use case where the lookup must return a ready-to-use C string pointer.
+func BenchmarkableTrieGet(headerNames []string) func(string) unsafe.Pointer {
+	var trie headerTrie
+	for _, name := range headerNames {
+		cname := C.CString(name)
+		trie.set(name, cname)
+	}
+	return func(key string) unsafe.Pointer {
+		cname, found := trie.get(key)
+		if !found {
+			return nil
+		}
+		return unsafe.Pointer(cname)
+	}
+}
+
+// BenchmarkableMapGet creates a map[string]*C.char keyed by pre-lowercased header names,
+// mirroring importantHeaderCStringMap from the ihm-lookup-opt branch.
+// Lookup does strings.ToLower(key) + map access. The ToLower allocation is unavoidable
+// because map lookup requires an exact key match for hashing.
+// Returns unsafe.Pointer to the *C.char on match (nil if not found).
+func BenchmarkableMapGet(headerNames []string) func(string) unsafe.Pointer {
+	m := make(map[string]*C.char, len(headerNames))
+	for _, name := range headerNames {
+		cname := C.CString(name)
+		m[strings.ToLower(name)] = cname
+	}
+	return func(key string) unsafe.Pointer {
+		cname, found := m[strings.ToLower(key)]
+		if !found {
+			return nil
+		}
+		return unsafe.Pointer(cname)
+	}
+}
+
+
 
 // CompareVersions Returns 0 if v1 == v2, -1 if v1 < v2, and 1 if v1 > v2.
 func CompareVersions(v1, v2 string) int {
