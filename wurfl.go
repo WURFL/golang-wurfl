@@ -817,16 +817,15 @@ func (w *Wurfl) LookupWithImportantHeaderMap(IHMap map[string]string) (*Device, 
 		return nil, checkHandleError(w.Wurfl)
 	}
 	defer C.wurfl_important_header_destroy(cih)
-	// fill it with IHMap entries, using trie for case-insensitive lookup and reusable buffer to avoid malloc/free
-	buf := make([]byte, 0, 256)
+	// fill it with IHMap entries, using trie for case-insensitive header name lookup
 	for importantHeaderName, headerValue := range IHMap {
 		cheaderName, found := w.importantHeaderTrie.get(importantHeaderName)
 		if !found {
 			continue
 		}
-		buf = append(buf[:0], headerValue...)
-		buf = append(buf, 0)
-		C.wurfl_important_header_set(cih, cheaderName, (*C.char)(unsafe.Pointer(&buf[0])))
+		cheaderValue := C.CString(headerValue)
+		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
+		C.free(unsafe.Pointer(cheaderValue))
 	}
 
 	d.Device = C.wurfl_lookup_with_important_header(w.Wurfl, cih)
@@ -856,16 +855,15 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	}
 	defer C.wurfl_important_header_destroy(cih)
 
-	// fill it with IHMap entries, using trie for case-insensitive lookup and reusable buffer to avoid malloc/free
-	buf := make([]byte, 0, 256)
+	// fill it with IHMap entries, using trie for case-insensitive header name lookup
 	for importantHeaderName, headerValue := range IHMap {
 		cheaderName, found := w.importantHeaderTrie.get(importantHeaderName)
 		if !found {
 			continue
 		}
-		buf = append(buf[:0], headerValue...)
-		buf = append(buf, 0)
-		C.wurfl_important_header_set(cih, cheaderName, (*C.char)(unsafe.Pointer(&buf[0])))
+		cheaderValue := C.CString(headerValue)
+		C.wurfl_important_header_set(cih, cheaderName, cheaderValue)
+		C.free(unsafe.Pointer(cheaderValue))
 	}
 
 	d.Device = C.wurfl_get_device_with_important_header(w.Wurfl, cDeviceID, cih)
