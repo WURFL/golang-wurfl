@@ -1460,6 +1460,23 @@ func asciiCmpFold(entryLower string, key string) int {
 	return 0
 }
 
+// BenchmarkableCStringValue converts a Go string to a *C.char using C.CString (malloc + copy),
+// then frees it. This mirrors the old per-header approach in LookupWithImportantHeaderMap.
+func BenchmarkableCStringValue(value string) {
+	cs := C.CString(value)
+	C.free(unsafe.Pointer(cs))
+}
+
+// BenchmarkableBufferValue allocates a reusable buffer and copies a Go string into it
+// with a null terminator, returning the pointer as unsafe.Pointer.
+// This mirrors the optimized buffer approach in LookupWithImportantHeaderMap.
+func BenchmarkableBufferValue(value string) unsafe.Pointer {
+	buf := make([]byte, 0, 320)
+	buf = append(buf[:0], value...)
+	buf = append(buf, 0)
+	return unsafe.Pointer(&buf[0])
+}
+
 // CompareVersions Returns 0 if v1 == v2, -1 if v1 < v2, and 1 if v1 > v2.
 func CompareVersions(v1, v2 string) int {
 	parts1 := strings.Split(v1, ".")

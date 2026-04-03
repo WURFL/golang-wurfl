@@ -1192,6 +1192,24 @@ func TestP99_LookupUserAgent_NoCache(t *testing.T) {
 	t.Logf("P100: %v", p100)
 }
 
+func Benchmark_HeaderValueCString(b *testing.B) {
+	headerValue := `"Chromium";v="122.0.6261.64", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="122.0.6261.64"`
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		wurfl.BenchmarkableCStringValue(headerValue)
+	}
+}
+
+func Benchmark_HeaderValueBuffer(b *testing.B) {
+	headerValue := `"Chromium";v="122.0.6261.64", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="122.0.6261.64"`
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchSink = wurfl.BenchmarkableBufferValue(headerValue)
+	}
+}
+
 // used to prevent compiler optimizations in the BenchmarkStringToLower
 var sinkString string
 
