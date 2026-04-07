@@ -312,8 +312,8 @@ func Create(Wurflxml string, Patches []string, CapFilter []string, EngineTarget 
 
 	// setting wurfl.xml
 	wxml := C.CString(Wurflxml)
+	defer C.free(unsafe.Pointer(wxml))
 	if ret := C.wurfl_set_root(w.Wurfl, wxml); ret != C.WURFL_OK {
-		C.free(unsafe.Pointer(wxml))
 		w.Destroy()
 		return nil, cErrorToGoError(ret)
 	}
@@ -770,6 +770,7 @@ func (w *Wurfl) LookupDeviceIDWithRequest(DeviceID string, r *http.Request) (*De
 	d.capsCStringcache = w.capsCStringcache
 
 	wDeviceID := C.CString(DeviceID)
+	defer C.free(unsafe.Pointer(wDeviceID))
 
 	// create important headers object to pass to lookup
 
@@ -794,7 +795,6 @@ func (w *Wurfl) LookupDeviceIDWithRequest(DeviceID string, r *http.Request) (*De
 	}
 
 	d.Device = C.wurfl_get_device_with_important_header(w.Wurfl, wDeviceID, cih)
-	C.free(unsafe.Pointer(wDeviceID))
 	if d.Device == nil {
 		return nil, checkHandleError(w.Wurfl)
 	}
@@ -846,6 +846,7 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	d.capsCStringcache = w.capsCStringcache
 
 	cDeviceID := C.CString(DeviceID)
+	defer C.free(unsafe.Pointer(cDeviceID))
 
 	// create important headers object to pass to lookup
 
@@ -867,7 +868,6 @@ func (w *Wurfl) LookupDeviceIDWithImportantHeaderMap(DeviceID string, IHMap map[
 	}
 
 	d.Device = C.wurfl_get_device_with_important_header(w.Wurfl, cDeviceID, cih)
-	C.free(unsafe.Pointer(cDeviceID))
 	if d.Device == nil {
 		return nil, checkHandleError(w.Wurfl)
 	}
@@ -1355,8 +1355,6 @@ func BenchmarkableMapGet(headerNames []string) func(string) unsafe.Pointer {
 		return unsafe.Pointer(cname)
 	}
 }
-
-
 
 // CompareVersions Returns 0 if v1 == v2, -1 if v1 < v2, and 1 if v1 > v2.
 func CompareVersions(v1, v2 string) int {
