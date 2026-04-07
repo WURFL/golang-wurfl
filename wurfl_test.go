@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -272,6 +273,32 @@ func Test_GetCapability(t *testing.T) {
 	device.Destroy()
 }
 
+func Test_LookupRequestCaseInsensitiveHeaders(t *testing.T) {
+
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	// User-Agent
+	UserAgent := "Mozilla/5.0 (Linux; Android 11; Mi 9 Lite Build/QKQ1.190828.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/135.0.7049.113 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/511.0.0.73.36;IABMV/1;]"
+
+	// create http.Request and lookup using headers
+	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req.Header.Add("User-AgeNT", UserAgent)
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("SEc-Ch-UA", `"Android WebView";v="135", "Not-A.Brand";v="8", "Chromium";v="135"`)
+	req.Header.Add("Sec-Ch-Ua-MObiLe", "?1")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM", "Android")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM-VERsIOn", "12")
+
+	reqDevice, err := wengine.LookupRequest(req)
+	assert.NoErrorf(t, err, "LookupRequest returned an error: %s", err)
+	reqDeviceID, _ := reqDevice.GetDeviceID()
+	assert.Equal(t, "xiaomi_mi_9_lite_ver1_suban110", reqDeviceID)
+
+	reqDevice.Destroy()
+}
+
 func Test_LookupRequest(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
@@ -501,6 +528,135 @@ func Test_LookupWithImportantHeaderMapCaseInsensitive(t *testing.T) {
 	deviceIHM.Destroy()
 }
 
+func Test_LookupDeviceIDWithImportantHeaderMapCaseInsensitive(t *testing.T) {
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	UserAgent := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+
+	deviceLA, err := wengine.LookupUserAgent(UserAgent)
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+
+	LaDeviceID, _ := deviceLA.GetDeviceID()
+	LAAdvertisedBrowser, _ := deviceLA.GetVirtualCap("advertised_browser")
+
+	// create IHMap and lookup using headers. Headers names will have some case differences
+	// to check that LookuupWithImportantHeaderMap() is case insensitive
+
+	// Where strings could contain double quotes (") delimit values using backticks (`) to avoid escaping
+	IHMap := make(map[string]string)
+	IHMap["User-Agent"] = UserAgent
+	IHMap["accept-encoding"] = "gzip, deflate, br, zstd"
+	IHMap["Sec-ch-UA-Platform"] = "Android"
+	IHMap["Sec-CH-ua"] = `"Chromium";v="122", "Not(A:Brand";v="24", "Veera";v="122"`
+	IHMap["SEC-CH-UA-MOBILE"] = "?1"
+	IHMap["seC-cH-uA-fulL-versioN-lisT"] = `"Chromium";v="122.0.0.0", "Not(A:Brand";v="24.0.0.0", "Veera";v="122.0.0.0"`
+
+	deviceIHM, err := wengine.LookupDeviceIDWithImportantHeaderMap(LaDeviceID, IHMap)
+	assert.NoErrorf(t, err, "LookupDeviceIDWithImportantHeaderMap returned an error: %s", err)
+
+	IHMDeviceID, _ := deviceIHM.GetDeviceID()
+	IHMAdvertisedBrowser, _ := deviceIHM.GetVirtualCap("advertised_browser")
+	if LaDeviceID != IHMDeviceID {
+		t.Errorf("Devices are different, should be the same : %s, %s\n", LaDeviceID, IHMDeviceID)
+	}
+
+	// If case insensitivity is not working, the lookup with important header map will not find the same advertised_browser vcap will be different (Chrome instead of Veera)
+	if LAAdvertisedBrowser == IHMAdvertisedBrowser {
+		t.Errorf("advertised_browser are the same, should be different : %s, %s\n", LAAdvertisedBrowser, IHMAdvertisedBrowser)
+	}
+
+	deviceLA.Destroy()
+	deviceIHM.Destroy()
+}
+
+// Test_LookupWithImportantHeaderMap_CaseConsistency verifies that the trie-based
+// case-insensitive header name lookup produces identical detection results regardless
+// of the casing used for header names. The same header values are submitted with
+// multiple case variations, and all lookups must return the same device ID and capabilities.
+func Test_LookupWithImportantHeaderMap_CaseConsistency(t *testing.T) {
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	// header values shared across all case variants
+	headerValues := map[string]string{
+		"User-Agent":                 "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+		"Sec-CH-UA":                  `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
+		"Sec-CH-UA-Full-Version-List": `"Chromium";v="122.0.6261.64", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="122.0.6261.64"`,
+		"Sec-CH-UA-Mobile":           "?1",
+		"Sec-CH-UA-Model":            "SM-S928B",
+		"Sec-CH-UA-Platform":         "Android",
+		"Sec-CH-UA-Platform-Version": "14.0.0",
+	}
+
+	// different case variants for the same header names
+	caseVariants := []map[string]string{
+		// canonical case
+		headerValues,
+		// all lowercase
+		{
+			"user-agent":                  headerValues["User-Agent"],
+			"sec-ch-ua":                   headerValues["Sec-CH-UA"],
+			"sec-ch-ua-full-version-list": headerValues["Sec-CH-UA-Full-Version-List"],
+			"sec-ch-ua-mobile":            headerValues["Sec-CH-UA-Mobile"],
+			"sec-ch-ua-model":             headerValues["Sec-CH-UA-Model"],
+			"sec-ch-ua-platform":          headerValues["Sec-CH-UA-Platform"],
+			"sec-ch-ua-platform-version":  headerValues["Sec-CH-UA-Platform-Version"],
+		},
+		// all uppercase
+		{
+			"USER-AGENT":                  headerValues["User-Agent"],
+			"SEC-CH-UA":                   headerValues["Sec-CH-UA"],
+			"SEC-CH-UA-FULL-VERSION-LIST": headerValues["Sec-CH-UA-Full-Version-List"],
+			"SEC-CH-UA-MOBILE":            headerValues["Sec-CH-UA-Mobile"],
+			"SEC-CH-UA-MODEL":             headerValues["Sec-CH-UA-Model"],
+			"SEC-CH-UA-PLATFORM":          headerValues["Sec-CH-UA-Platform"],
+			"SEC-CH-UA-PLATFORM-VERSION":  headerValues["Sec-CH-UA-Platform-Version"],
+		},
+		// mixed case
+		{
+			"uSeR-aGeNt":                  headerValues["User-Agent"],
+			"sEc-cH-uA":                  headerValues["Sec-CH-UA"],
+			"sEc-cH-uA-fUlL-vErSiOn-lIsT": headerValues["Sec-CH-UA-Full-Version-List"],
+			"sEc-cH-uA-mObIlE":           headerValues["Sec-CH-UA-Mobile"],
+			"sEc-cH-uA-mOdEl":            headerValues["Sec-CH-UA-Model"],
+			"sEc-cH-uA-pLaTfOrM":         headerValues["Sec-CH-UA-Platform"],
+			"sEc-cH-uA-pLaTfOrM-vErSiOn": headerValues["Sec-CH-UA-Platform-Version"],
+		},
+	}
+
+	// perform lookup with the canonical case to get the reference result
+	refDevice, err := wengine.LookupWithImportantHeaderMap(caseVariants[0])
+	require.NoError(t, err)
+	refDeviceID, _ := refDevice.GetDeviceID()
+	refModelName, _ := refDevice.GetStaticCap("model_name")
+	refBrowser, _ := refDevice.GetVirtualCap("advertised_browser")
+	refDevice.Destroy()
+
+	caseLabels := []string{"canonical", "lowercase", "uppercase", "mixed"}
+
+	// verify that all case variants produce identical results
+	for i := 1; i < len(caseVariants); i++ {
+		device, err := wengine.LookupWithImportantHeaderMap(caseVariants[i])
+		require.NoErrorf(t, err, "case variant %s: lookup error", caseLabels[i])
+
+		deviceID, _ := device.GetDeviceID()
+		modelName, _ := device.GetStaticCap("model_name")
+		browser, _ := device.GetVirtualCap("advertised_browser")
+
+		assert.Equalf(t, refDeviceID, deviceID,
+			"case variant %s: device ID mismatch", caseLabels[i])
+		assert.Equalf(t, refModelName, modelName,
+			"case variant %s: model_name mismatch", caseLabels[i])
+		assert.Equalf(t, refBrowser, browser,
+			"case variant %s: advertised_browser mismatch", caseLabels[i])
+
+		device.Destroy()
+	}
+}
+
 func Test_LookupDeviceIDWithRequest(t *testing.T) {
 
 	wengine := fixtureCreateEngine(t)
@@ -544,6 +700,40 @@ func Test_LookupDeviceIDWithRequest(t *testing.T) {
 	}
 
 	deviceIHM.Destroy()
+}
+
+func Test_LookupDeviceIDWithRequestCaseInsensitiveHeaders(t *testing.T) {
+
+	wengine := fixtureCreateEngine(t)
+	require.NotNil(t, wengine)
+	defer wengine.Destroy()
+
+	// User-Agent
+	UserAgent := "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/135.0.0.0 Mobile Safari/537.36"
+	UADevice, err := wengine.LookupUserAgent(UserAgent)
+	assert.NoErrorf(t, err, "LookupUserAgent returned an error: %s", err)
+	UADeviceID, _ := UADevice.GetDeviceID()
+	UADeviceAdvertisedOSVersion, _ := UADevice.GetVirtualCap("advertised_device_os_version")
+
+	// create http.Request and lookup using headers
+	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req.Header.Add("User-AgeNT", UserAgent)
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("SEc-Ch-UA", `"Android WebView";v="135", "Not-A.Brand";v="8", "Chromium";v="135"`)
+	req.Header.Add("Sec-Ch-Ua-MObiLe", "?1")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM", "Android")
+	req.Header.Add("Sec-Ch-Ua-PlatFORM-VERsIOn", "12")
+
+	reqDevice, err := wengine.LookupDeviceIDWithRequest(UADeviceID, req)
+	assert.NoErrorf(t, err, "LookupDeviceIDWithRequest returned an error: %s", err)
+	reqDeviceID, _ := reqDevice.GetDeviceID()
+	reqDeviceAdvertisedOSVersion, _ := reqDevice.GetVirtualCap("advertised_device_os_version")
+	assert.Equal(t, UADeviceID, reqDeviceID)
+	// If case insensitivity is not working, the lookup with request will not find the same advertised_device_os_version vcap will be different (12 instead of 10)
+	assert.NotEqual(t, UADeviceAdvertisedOSVersion, reqDeviceAdvertisedOSVersion)
+
+	UADevice.Destroy()
+	reqDevice.Destroy()
 }
 
 func TestWurfl_UpdaterRunonce(t *testing.T) {
@@ -1295,13 +1485,16 @@ func TestDownloadJira1236(t *testing.T) {
 		t.Skip("SM_UPDATER_DATA_URL environment var not set")
 	}
 
+	// Use a dedicated temp directory to avoid conflicts with other tests
+	tempDir := t.TempDir()
+
 	// Copy evaluation wurfl.zip installed with libwurfl here
 	// this file could be under /usr/share/wurfl or /usr/local/share/wurfl depending on the system
 	srcPath := "/usr/share/wurfl/wurfl.zip"
 	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
 		srcPath = "/usr/local/share/wurfl/wurfl.zip"
 	}
-	destPath := "wurfl.zip"
+	destPath := filepath.Join(tempDir, "wurfl.zip")
 
 	err := copyFile(srcPath, destPath)
 	if err != nil {
@@ -1321,20 +1514,16 @@ func TestDownloadJira1236(t *testing.T) {
 	}
 
 	// Create the engine with eval version, the capfilter makes the engine creation fail
-	_, err = wurfl.Create("wurfl.zip", nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
+	_, err = wurfl.Create(destPath, nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
 
 	assert.ErrorIs(t, err, wurfl.ErrCantLoadCapabilityNotFound)
 
 	// Now download first a fresh wurfl.zip, and then create the engine
-	err = wurfl.Download(URL, ".")
+	err = wurfl.Download(URL, tempDir)
 	require.NoError(t, err)
 
-	_, err = wurfl.Create("wurfl.zip", nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
+	_, err = wurfl.Create(destPath, nil, capfilter, -1, wurfl.WurflCacheProviderLru, "100000")
 	require.NoError(t, err)
-
-	// Remove local wurfl.zip
-	err = os.Remove("wurfl.zip")
-	assert.NoError(t, err)
 }
 
 // TestDownload tests the Download function of the wurfl package. It creates a temporary
@@ -1735,7 +1924,22 @@ func TestGetVirtualCaps(t *testing.T) {
 }
 
 func Test_ORTB2GetDevicetype(t *testing.T) {
-	wengine := fixtureCreateEngine(t)
+	var wengine *wurfl.Wurfl
+
+	URL := os.Getenv("SM_UPDATER_DATA_URL_ORTB2")
+	if URL != "" {
+		// Use a dedicated temp directory to avoid conflicts with other tests
+		tempDir := t.TempDir()
+		err := wurfl.Download(URL, tempDir)
+		require.NoError(t, err)
+
+		wurflPath := filepath.Join(tempDir, "wurfl.zip")
+		var createErr error
+		wengine, createErr = wurfl.Create(wurflPath, nil, nil, -1, wurfl.WurflCacheProviderLru, "100000")
+		require.NoError(t, createErr)
+	} else {
+		wengine = fixtureCreateEngine(t)
+	}
 	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
@@ -1794,8 +1998,13 @@ func Test_ORTB2GetDevicetype(t *testing.T) {
 			expected: wurfl.ORTB2DeviceTypePersonalComputer,
 		},
 		{
+			name:     "iPhone",
+			ua:       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
+			expected: wurfl.ORTB2DeviceTypePhone,
+		},
+		{
 			name:     "Console",
-			ua:       "Mozilla/5.0 (PlayStation Vita 3.73) AppleWebKit/537.73 (KHTML, like Gecko) Silk/3.2 VTE/3.73",
+			ua:       "Mozilla/5.0 (PlayStation 5/SmartTV) AppleWebKit/605.1.15 (KHTML, like Gecko)",
 			expected: wurfl.ORTB2DeviceTypeConnectedDevice,
 		},
 	}

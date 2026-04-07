@@ -1,3 +1,9 @@
+1.33.0 - April 7, 2026
+
+- Optimized LookupWithImportantHeaderMap and LookupDeviceIDWithImportantHeaderMap: replaced per-call C.CString allocations for header names with a trie-based lookup using pre-allocated C strings, reducing cgo overhead on hot paths
+- Case-insensitive header name matching now handled via inline bit folding
+- Fixed potential C memory leaks by deferring C.free calls in Create, LookupDeviceIDWithRequest, and LookupDeviceIDWithImportantHeaderMap
+
 1.32.1 - January 26, 2026
 
 - fixed method ORTB2GetDevicetype to Device struct
