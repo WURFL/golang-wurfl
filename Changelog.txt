@@ -1,3 +1,6 @@
+1.33.1 - June 2026
+- Fixed a couple of tests
+
 1.33.0 - April 7, 2026
 
 - Optimized LookupWithImportantHeaderMap and LookupDeviceIDWithImportantHeaderMap: replaced per-call C.CString allocations for header names with a trie-based lookup using pre-allocated C strings, reducing cgo overhead on hot paths

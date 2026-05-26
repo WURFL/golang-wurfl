@@ -453,7 +453,7 @@ func Test_LookupDeviceIDWithImportantHeaderMap(t *testing.T) {
 	defer wengine.Destroy()
 
 	// User-Agent
-	UserAgent := "UCWEB/2.0 (Java; U; MIDP-2.0; Nokia203/20.37) U2/1.0.0 UCBrowser/8.7.0.218 U2/1.0.0 Mobile"
+	UserAgent := "Opera/9.80 (J2ME/MIDP; Opera Mini/4.4/36.2464; U; en) Presto/2.12.423 Version/12.16"
 	// X-UCBrowser-Device-UA
 	XUCBrowserDeviceUA := "Mozilla/5.0 (Linux; U; Android 5.1.1; en-US; SM-J200G Build/LMY47X) AppleWebKit/528.5+ (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1"
 
@@ -582,13 +582,13 @@ func Test_LookupWithImportantHeaderMap_CaseConsistency(t *testing.T) {
 
 	// header values shared across all case variants
 	headerValues := map[string]string{
-		"User-Agent":                 "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
-		"Sec-CH-UA":                  `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
+		"User-Agent":                  "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+		"Sec-CH-UA":                   `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
 		"Sec-CH-UA-Full-Version-List": `"Chromium";v="122.0.6261.64", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="122.0.6261.64"`,
-		"Sec-CH-UA-Mobile":           "?1",
-		"Sec-CH-UA-Model":            "SM-S928B",
-		"Sec-CH-UA-Platform":         "Android",
-		"Sec-CH-UA-Platform-Version": "14.0.0",
+		"Sec-CH-UA-Mobile":            "?1",
+		"Sec-CH-UA-Model":             "SM-S928B",
+		"Sec-CH-UA-Platform":          "Android",
+		"Sec-CH-UA-Platform-Version":  "14.0.0",
 	}
 
 	// different case variants for the same header names
@@ -618,12 +618,12 @@ func Test_LookupWithImportantHeaderMap_CaseConsistency(t *testing.T) {
 		// mixed case
 		{
 			"uSeR-aGeNt":                  headerValues["User-Agent"],
-			"sEc-cH-uA":                  headerValues["Sec-CH-UA"],
+			"sEc-cH-uA":                   headerValues["Sec-CH-UA"],
 			"sEc-cH-uA-fUlL-vErSiOn-lIsT": headerValues["Sec-CH-UA-Full-Version-List"],
-			"sEc-cH-uA-mObIlE":           headerValues["Sec-CH-UA-Mobile"],
-			"sEc-cH-uA-mOdEl":            headerValues["Sec-CH-UA-Model"],
-			"sEc-cH-uA-pLaTfOrM":         headerValues["Sec-CH-UA-Platform"],
-			"sEc-cH-uA-pLaTfOrM-vErSiOn": headerValues["Sec-CH-UA-Platform-Version"],
+			"sEc-cH-uA-mObIlE":            headerValues["Sec-CH-UA-Mobile"],
+			"sEc-cH-uA-mOdEl":             headerValues["Sec-CH-UA-Model"],
+			"sEc-cH-uA-pLaTfOrM":          headerValues["Sec-CH-UA-Platform"],
+			"sEc-cH-uA-pLaTfOrM-vErSiOn":  headerValues["Sec-CH-UA-Platform-Version"],
 		},
 	}
 
@@ -664,7 +664,7 @@ func Test_LookupDeviceIDWithRequest(t *testing.T) {
 	defer wengine.Destroy()
 
 	// User-Agent
-	UserAgent := "UCWEB/2.0 (Java; U; MIDP-2.0; Nokia203/20.37) U2/1.0.0 UCBrowser/8.7.0.218 U2/1.0.0 Mobile"
+	UserAgent := "Opera/9.80 (J2ME/MIDP; Opera Mini/4.4/36.2464; U; en) Presto/2.12.423 Version/12.16"
 	// X-UCBrowser-Device-UA
 	XUCBrowserDeviceUA := "Mozilla/5.0 (Linux; U; Android 5.1.1; en-US; SM-J200G Build/LMY47X) AppleWebKit/528.5+ (KHTML, like Gecko) Version/3.1.2 Mobile Safari/525.20.1"
 
