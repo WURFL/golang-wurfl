@@ -219,7 +219,7 @@ type WurflHandler interface {
 	SetAttr(attr int, value int) error
 	GetAttr(attr int) (int, error)
 	GetLastUpdated() string
-	GetAllMandatoryDeviceIds() []string
+	GetMandatoryDeviceIds() []string
 }
 
 // DeviceHandler defines API methods for the Wurfl Device handle
@@ -916,16 +916,16 @@ func (w *Wurfl) GetHeaderQuality(r *http.Request) (HeaderQuality, error) {
 }
 
 
-// GetAllMandatoryDeviceIds returns a slice containing all mandatory wurfl_id present in wurfl.zip
-func (w *Wurfl) GetAllMandatoryDeviceIds() []string {
+// GetMandatoryDeviceIds returns a slice containing all mandatory wurfl_id present in wurfl.zip
+func (w *Wurfl) GetMandatoryDeviceIds() []string {
 
 	eh := C.wurfl_enum_create(w.Wurfl, WurflEnumWurflMandatoryID)
 	elen := C.wurfl_enum_len(eh)
 	var result = make([]string, 0, elen)
 
 	for C.wurfl_enum_is_valid(eh) != 0 {
-		cdevId := C.wurfl_enum_get_name(eh)
-		result = append(result, C.GoString(cdevId))
+		cdevID := C.wurfl_enum_get_name(eh)
+		result = append(result, C.GoString(cdevID))
 		C.wurfl_enum_move_next(eh)
 	}
 	C.wurfl_enum_destroy(eh)
