@@ -965,6 +965,20 @@ func Benchmark_GetAllDeviceIds(b *testing.B) {
 	b.StopTimer()
 }
 
+// GetAllMandatoryDeviceIds benchmark
+func Benchmark_GetAllMandatoryDeviceIds(b *testing.B) {
+	wengine := fixtureCreateEngine(nil)
+	defer wengine.Destroy()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+
+		wengine.GetAllMandatoryDeviceIds()
+	}
+
+	b.StopTimer()
+}
+
 // benchmark CString()/Free() couple compared to accessing a map to get the desired CString
 // to understand whether a caps names CString cache might be interesting or not
 func Benchmark_CStringCFree(b *testing.B) {

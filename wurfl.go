@@ -83,6 +83,7 @@ const (
 	WurflEnumVirtualCapabilities   = C.WURFL_ENUM_VIRTUAL_CAPABILITIES
 	WurflEnumMandatoryCapabilities = C.WURFL_ENUM_MANDATORY_CAPABILITIES
 	WurflEnumWurflID               = C.WURFL_ENUM_WURFLID
+	WurflEnumWurflMandatoryID      = C.WURFL_ENUM_MANDATORY_WURFLID
 )
 
 // Wurfl updater frequency
@@ -218,6 +219,7 @@ type WurflHandler interface {
 	SetAttr(attr int, value int) error
 	GetAttr(attr int) (int, error)
 	GetLastUpdated() string
+	GetMandatoryDeviceIds() []string
 }
 
 // DeviceHandler defines API methods for the Wurfl Device handle
@@ -258,7 +260,7 @@ type Updater interface {
 }
 
 // Version is the current version of this package.
-const Version = "1.33.0"
+const Version = "1.34.0"
 
 // APIVersion returns version of internal InFuze API without an initialized engine
 func APIVersion() string {
@@ -911,6 +913,24 @@ func (w *Wurfl) GetHeaderQuality(r *http.Request) (HeaderQuality, error) {
 
 	hq := C.wurfl_important_header_uach_quality(cih)
 	return HeaderQuality(hq), nil
+}
+
+
+// GetMandatoryDeviceIds returns a slice containing all mandatory wurfl_id present in wurfl.zip
+func (w *Wurfl) GetMandatoryDeviceIds() []string {
+
+	eh := C.wurfl_enum_create(w.Wurfl, WurflEnumWurflMandatoryID)
+	elen := C.wurfl_enum_len(eh)
+	var result = make([]string, 0, elen)
+
+	for C.wurfl_enum_is_valid(eh) != 0 {
+		cdevID := C.wurfl_enum_get_name(eh)
+		result = append(result, C.GoString(cdevID))
+		C.wurfl_enum_move_next(eh)
+	}
+	C.wurfl_enum_destroy(eh)
+
+	return result
 }
 
 /*
