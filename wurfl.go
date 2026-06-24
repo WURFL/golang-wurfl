@@ -83,7 +83,7 @@ const (
 	WurflEnumVirtualCapabilities   = C.WURFL_ENUM_VIRTUAL_CAPABILITIES
 	WurflEnumMandatoryCapabilities = C.WURFL_ENUM_MANDATORY_CAPABILITIES
 	WurflEnumWurflID               = C.WURFL_ENUM_WURFLID
-	WurflEnumWurflMandatoryID      = C.MANDATORY_WURFL_ID
+	WurflEnumWurflMandatoryID      = C.WURFL_ENUM_MANDATORY_WURFLID
 )
 
 // Wurfl updater frequency
