@@ -1349,6 +1349,9 @@ func (m *MockWurfl) LookupUserAgent(ua string) (wurfl.DeviceHandler, error) {
 func (m *MockWurfl) GetAllDeviceIds() []string {
 	return []string{"generic"}
 }
+func (m *MockWurfl) GetAllMandatoryDeviceIds() []string {
+	return []string{"generic"}
+}
 func (m *MockWurfl) LookupDeviceID(DeviceID string) (wurfl.DeviceHandler, error) {
 	return nil, nil
 }
