@@ -2,7 +2,7 @@ package wurfl_test
 
 import (
 	"net/http"
-	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -1150,7 +1150,7 @@ func TestP99_LookupRequest_NoCache(t *testing.T) {
 		durations[i] = time.Since(start)
 	}
 
-	slices.Sort(durations)
+	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
 	p50 := durations[iterations*50/100]
 	p95 := durations[iterations*95/100]
 	p99 := durations[iterations*99/100]
@@ -1183,7 +1183,7 @@ func TestP99_LookupUserAgent_NoCache(t *testing.T) {
 		durations[i] = time.Since(start)
 	}
 
-	slices.Sort(durations)
+	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
 	p50 := durations[iterations*50/100]
 	p95 := durations[iterations*95/100]
 	p99 := durations[iterations*99/100]
