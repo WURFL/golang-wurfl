@@ -916,7 +916,7 @@ func (w *Wurfl) GetHeaderQuality(r *http.Request) (HeaderQuality, error) {
 }
 
 
-// GetMandatoryDeviceIds returns a slice containing all mandatory wurfl_id present in wurfl.zip
+// GetMandatoryDeviceIds returns a slice containing all mandatory wurfl_id present in wurfl.zip (requires libwurfl 1.13.5.1 or above)
 func (w *Wurfl) GetMandatoryDeviceIds() []string {
 
 	eh := C.wurfl_enum_create(w.Wurfl, WurflEnumWurflMandatoryID)
