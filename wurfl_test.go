@@ -884,12 +884,12 @@ func TestWurfl_GetAllDeviceIds(t *testing.T) {
 	assert.NotEqual(t, 0, len(ids))
 }
 
-func TestWurfl_GetAllMandatoryDeviceIds(t *testing.T) {
+func TestWurfl_GetMandatoryDeviceIds(t *testing.T) {
 	wengine := fixtureCreateEngine(t)
 	require.NotNil(t, wengine)
 	defer wengine.Destroy()
 
-	ids := wengine.GetAllMandatoryDeviceIds()
+	ids := wengine.GetMandatoryDeviceIds()
 	assert.NotEqual(t, 0, len(ids))
 	assert.LessOrEqual(t, len(ids), len(wengine.GetAllDeviceIds()))
 	assert.Contains(t, ids, "generic")
@@ -1360,7 +1360,7 @@ func (m *MockWurfl) LookupUserAgent(ua string) (wurfl.DeviceHandler, error) {
 func (m *MockWurfl) GetAllDeviceIds() []string {
 	return []string{"generic"}
 }
-func (m *MockWurfl) GetAllMandatoryDeviceIds() []string {
+func (m *MockWurfl) GetMandatoryDeviceIds() []string {
 	return []string{"generic"}
 }
 func (m *MockWurfl) LookupDeviceID(DeviceID string) (wurfl.DeviceHandler, error) {

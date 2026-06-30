@@ -965,15 +965,15 @@ func Benchmark_GetAllDeviceIds(b *testing.B) {
 	b.StopTimer()
 }
 
-// GetAllMandatoryDeviceIds benchmark
-func Benchmark_GetAllMandatoryDeviceIds(b *testing.B) {
+// GetMandatoryDeviceIds benchmark
+func Benchmark_GetMandatoryDeviceIds(b *testing.B) {
 	wengine := fixtureCreateEngine(nil)
 	defer wengine.Destroy()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 
-		wengine.GetAllMandatoryDeviceIds()
+		wengine.GetMandatoryDeviceIds()
 	}
 
 	b.StopTimer()
