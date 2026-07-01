@@ -2,7 +2,7 @@ package wurfl_test
 
 import (
 	"net/http"
-	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -965,6 +965,20 @@ func Benchmark_GetAllDeviceIds(b *testing.B) {
 	b.StopTimer()
 }
 
+// GetMandatoryDeviceIds benchmark
+func Benchmark_GetMandatoryDeviceIds(b *testing.B) {
+	wengine := fixtureCreateEngine(nil)
+	defer wengine.Destroy()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+
+		wengine.GetMandatoryDeviceIds()
+	}
+
+	b.StopTimer()
+}
+
 // benchmark CString()/Free() couple compared to accessing a map to get the desired CString
 // to understand whether a caps names CString cache might be interesting or not
 func Benchmark_CStringCFree(b *testing.B) {
@@ -1136,7 +1150,7 @@ func TestP99_LookupRequest_NoCache(t *testing.T) {
 		durations[i] = time.Since(start)
 	}
 
-	slices.Sort(durations)
+	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
 	p50 := durations[iterations*50/100]
 	p95 := durations[iterations*95/100]
 	p99 := durations[iterations*99/100]
@@ -1169,7 +1183,7 @@ func TestP99_LookupUserAgent_NoCache(t *testing.T) {
 		durations[i] = time.Since(start)
 	}
 
-	slices.Sort(durations)
+	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
 	p50 := durations[iterations*50/100]
 	p95 := durations[iterations*95/100]
 	p99 := durations[iterations*99/100]
